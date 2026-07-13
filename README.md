@@ -96,6 +96,13 @@ Then follow your platform.
 > No `winget`? Install Docker Desktop from
 > <https://www.docker.com/products/docker-desktop/>, start it, then re-run.
 
+> **No Docker? (recommended for client PCs)** Docker Desktop needs CPU
+> virtualization + WSL2, and a paid licence for larger businesses. To skip all
+> that, run Argus **without Docker**: install [Node.js LTS](https://nodejs.org),
+> then double-click **`start-windows.bat`**. It downloads the go2rtc engine
+> automatically, enables WebRTC, and starts everything — no virtualization, no
+> WSL2, no Docker.
+
 ### macOS
 
 ```bash
