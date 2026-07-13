@@ -36,6 +36,10 @@ services:
       - "8080:8080"
     environment:
       - GO2RTC_URL=http://go2rtc:1984
+      # Host LAN IP the browser reaches WebRTC media (:8555) on. The installer
+      # writes this to .env; set it yourself if you run compose by hand and want
+      # WebRTC (recommended — avoids the MSE decode fallback). Leave blank to skip.
+      - HOST_IP=${HOST_IP:-}
     volumes:
       - argus-data:/data   # persisted camera list (cameras.json)
     depends_on:

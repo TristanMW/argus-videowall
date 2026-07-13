@@ -107,4 +107,4 @@ function startMdns(name = "argus.local") {
   return sock;
 }
 
-module.exports = { startMdns };
+module.exports = { startMdns, localIPv4 };

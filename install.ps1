@@ -56,7 +56,22 @@ if ($LASTEXITCODE -ne 0) {
   exit 1
 }
 
-# ── 4. Build and start Argus ─────────────────────────────────────────────────
+# ── 4. Detect LAN IP and enable WebRTC ───────────────────────────────────────
+# Written to .env so go2rtc advertises a reachable WebRTC candidate; without it
+# the player falls back to MSE, which fails to decode some cameras (e.g. UniFi).
+$ip = $null
+try {
+  $ip = (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } |
+         Select-Object -First 1).IPv4Address.IPAddress
+} catch {}
+if ($ip) {
+  "HOST_IP=$ip" | Out-File -FilePath .env -Encoding ascii -Force
+  Info "Detected LAN IP $ip (WebRTC enabled via .env)."
+} else {
+  Warn "Couldn't detect a LAN IP; WebRTC candidate not set. Video still works via MSE."
+}
+
+# ── 5. Build and start Argus ─────────────────────────────────────────────────
 Info "Building and starting Argus..."
 docker compose up -d --build
 

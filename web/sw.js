@@ -4,13 +4,14 @@
 //   • /api/* — live camera data, always from the network
 //   • go2rtc streams — cross-origin (different host/port), never intercepted here
 // ─────────────────────────────────────────────────────────────────────────────
-const VERSION = "argus-v1";
+const VERSION = "argus-v2";
 const SHELL = [
   "./",
   "./index.html",
   "./config.html",
   "./styles.css",
   "./settings.js",
+  "./wall.js",
   "./app.js",
   "./config-ui.js",
   "./manifest.webmanifest",

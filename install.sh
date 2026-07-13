@@ -81,11 +81,22 @@ fi
 DK="docker"
 daemon_up || DK="sudo docker"
 
-# ── 3. Build and start Argus ─────────────────────────────────────────────────
+# ── 3. Detect the LAN IP and enable WebRTC ───────────────────────────────────
+# Written to .env so go2rtc advertises a reachable WebRTC candidate — without it
+# the player falls back to MSE, which fails to decode some cameras (e.g. UniFi).
+IP="$( (hostname -I 2>/dev/null || ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null) | awk '{print $1}')"
+if [ -n "${IP:-}" ]; then
+  if [ -f .env ]; then grep -v '^HOST_IP=' .env > .env.tmp 2>/dev/null || true; mv .env.tmp .env 2>/dev/null || true; fi
+  printf 'HOST_IP=%s\n' "$IP" >> .env
+  info "Detected LAN IP $IP (WebRTC enabled via .env)."
+else
+  warn "Couldn't detect a LAN IP; WebRTC candidate not set. Video still works via MSE."
+fi
+
+# ── 4. Build and start Argus ─────────────────────────────────────────────────
 info "Building and starting Argus…"
 $DK compose up -d --build
 
-IP="$( (hostname -I 2>/dev/null || ipconfig getifaddr en0 2>/dev/null) | awk '{print $1}')"
 echo
 info "✅ Argus is running."
 info "   Video wall :  http://localhost:8080"

@@ -5,36 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Argus — Video Wall</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#0d0f12" />
+  <meta name="theme-color" content="#0B0E14" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="toolbar">
-    <div class="brand">Argus<span>·</span>video wall</div>
+  <header class="app-bar" id="app-bar">
+    <div class="app-bar__brand"><span class="brand-dot"></span>Argus</div>
 
-    <div class="controls">
-      <label class="grid-picker">
-        Layout
-        <select id="grid-select">
-          <option value="1">1 × 1</option>
-          <option value="4">2 × 2</option>
-          <option value="6">2 × 3</option>
-          <option value="9">3 × 3</option>
-          <option value="16">4 × 4</option>
-        </select>
-      </label>
-
-      <button id="mute-all" class="btn" title="Mute every tile">🔇 Mute all</button>
-      <button id="fullscreen" class="btn" title="Fullscreen the wall">⛶ Fullscreen</button>
-      <a class="btn" href="config.html" title="Add / edit cameras">⚙ Cameras</a>
-      <span id="status" class="status"></span>
+    <div class="seg" id="presets" role="group" aria-label="Layout presets">
+      <button class="seg__btn" data-preset="1" title="Single">1</button>
+      <button class="seg__btn" data-preset="4" title="2 × 2">2×2</button>
+      <button class="seg__btn" data-preset="6" title="2 × 3">2×3</button>
+      <button class="seg__btn" data-preset="9" title="3 × 3">3×3</button>
+      <button class="seg__btn" data-preset="16" title="4 × 4">4×4</button>
     </div>
+
+    <button id="edit-toggle" class="btn" aria-pressed="false" title="Resize / arrange tiles">Edit layout</button>
+
+    <div class="app-bar__spacer"></div>
+
+    <button id="sidebar-toggle" class="btn btn--icon" title="Cameras panel" aria-pressed="true">☰</button>
+    <button id="sound-toggle" class="btn btn--icon" title="Sound" aria-pressed="false">🔈</button>
+    <button id="fs-toggle" class="btn btn--icon" title="Fullscreen">⛶</button>
+    <a class="btn btn--icon" href="config.html" title="Cameras &amp; settings">⚙</a>
+    <span id="clock" class="app-bar__clock"></span>
   </header>
 
-  <main id="wall" class="wall"></main>
+  <div class="workspace" id="workspace">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__head">
+        <span>Cameras</span>
+        <span class="pill pill--count" id="cam-count">0</span>
+      </div>
+      <input class="in sidebar__search" id="cam-search" type="text" placeholder="Search cameras…" />
+      <div class="cam-list" id="cam-list"></div>
+      <div class="sidebar__hint" id="sidebar-hint"></div>
+    </aside>
+
+    <main class="wall" id="wall" data-mode="view"></main>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
 
   <script src="settings.js"></script>
+  <script src="wall.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

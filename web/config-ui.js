@@ -23,8 +23,6 @@ function el(tag, attrs = {}, children = []) {
 function addRow(cam = {}) {
   const name = el("input", { type: "text", class: "in name", placeholder: "Front door", value: cam.name || "" });
   const url = el("input", { type: "text", class: "in url", placeholder: "rtsp://user:pass@192.168.1.108:554/…", value: cam.url || "" });
-  const audio = el("input", { type: "checkbox", checked: cam.audio });
-  const talk = el("input", { type: "checkbox", checked: cam.talk });
 
   // "Test" opens go2rtc's own player for this stream — only meaningful once the
   // camera has been saved (so the stream id exists in the engine).
@@ -40,16 +38,12 @@ function addRow(cam = {}) {
   const tr = el("tr", {}, [
     el("td", {}, name),
     el("td", {}, url),
-    el("td", { class: "center" }, audio),
-    el("td", { class: "center" }, talk),
     el("td", { class: "center row-actions" }, [test, remove]),
   ]);
   tr._get = () => ({
     id: cam.id, // preserved so the backend keeps a stable stream id
     name: name.value.trim(),
     url: url.value.trim(),
-    audio: audio.checked,
-    talk: talk.checked,
   });
   rowsEl.append(tr);
   return tr;
@@ -205,21 +199,37 @@ document.getElementById("detect").addEventListener("click", detect);
 const gateEl = document.getElementById("gate");
 const editorEl = document.getElementById("editor");
 const connEl = document.getElementById("conn-status");
+const gateTitle = document.getElementById("gate-title");
+const gateClose = document.getElementById("gate-close");
+const toggleBackendBtn = document.getElementById("toggle-backend");
+let connected = false;
+
+// Open the backend panel. When already connected it's a "change" action (with a
+// Close button to return); when not, it's the first-connect gate.
+function openGate() {
+  backendInput.value = ARGUS.getBackendOverride() || ARGUS.backendBase();
+  gateTitle.textContent = connected ? "Backend connection" : "Connect to your Argus box";
+  gateClose.hidden = !connected;
+  gateEl.hidden = false;
+}
+function closeGate() { if (connected) gateEl.hidden = true; }
+
+toggleBackendBtn.addEventListener("click", () => (gateEl.hidden ? openGate() : closeGate()));
+gateClose.addEventListener("click", closeGate);
 
 function showGate() {
+  connected = false;
   editorEl.hidden = true;
   connEl.hidden = true;
-  gateEl.hidden = false;
+  openGate();
 }
 
 function showEditor(list) {
+  connected = true;
   gateEl.hidden = true;
   editorEl.hidden = false;
   connEl.hidden = false;
-  connEl.innerHTML = `<span class="dot live"></span> Connected to <code>${escapeHtml(ARGUS.backendBase())}</code>`;
-  const change = el("button", { type: "button", class: "row-btn" }, "Change");
-  change.addEventListener("click", () => { gateEl.hidden = false; });
-  connEl.append(" ", change);
+  connEl.innerHTML = `<span class="dot live"></span> Connected to <code>${escapeHtml(ARGUS.backendBase())}</code> — use <strong>⚙ Backend</strong> to change.`;
   render(list);
 }
 

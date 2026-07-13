@@ -1,147 +1,169 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Video-wall app. Cameras come from the Argus backend (GET /api/cameras). Each
-// tile is an <iframe> pointing at go2rtc's own WebRTC player, so go2rtc handles
-// codec negotiation, audio and reconnection. Nothing is recorded — this is
-// view + listen (and, for the intercom, talk) only.
+// Argus video wall — orchestration. Fetches cameras from the backend, drives the
+// BSP wall engine (wall.js), and wires the toolbar + camera sidebar. Audio is
+// part of the stream; a single global sound toggle mutes/unmutes the whole wall
+// (there are no per-tile audio buttons). View-only, nothing recorded.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const wall = document.getElementById("wall");
-const statusEl = document.getElementById("status");
-const gridSelect = document.getElementById("grid-select");
+const $ = (id) => document.getElementById(id);
+const wallEl = $("wall");
+const camListEl = $("cam-list");
+const camCountEl = $("cam-count");
+const searchEl = $("cam-search");
+const hintEl = $("sidebar-hint");
+const toastEl = $("toast");
 
-const GRID_KEY = "argus.grid";
 let cameras = [];
+let byId = new Map();
+let soundOn = false;
+let wall = null;
 
-// Resolved by settings.js — works served-from-box or Firebase-hosted.
-const base = () => ARGUS.go2rtcBase();
+const nameFor = (id) => (byId.get(id)?.name) || id;
+const videoUrl = (id) => `${ARGUS.go2rtcBase()}/stream.html?src=${encodeURIComponent(id)}&mode=webrtc,mse`;
+const audioUrl = (id) => `${ARGUS.go2rtcBase()}/webrtc.html?src=${encodeURIComponent(id)}&media=video+audio`;
+const urlFor = (id) => (soundOn ? audioUrl(id) : videoUrl(id));
 
-// go2rtc player URLs. stream.html = lowest-latency video; webrtc.html supports
-// audio and (with +microphone) two-way talk.
-const videoOnlyUrl = (src) =>
-  `${base()}/stream.html?src=${encodeURIComponent(src)}&mode=webrtc,mse`;
-const audioUrl = (src) =>
-  `${base()}/webrtc.html?src=${encodeURIComponent(src)}&media=video+audio`;
-const talkUrl = (src) =>
-  `${base()}/webrtc.html?src=${encodeURIComponent(src)}&media=video+audio+microphone`;
-
-// Map a "how many tiles" choice to a column count that stays roughly square.
-function colsFor(grid) {
-  return { 1: 1, 4: 2, 6: 3, 9: 3, 16: 4 }[grid] || Math.ceil(Math.sqrt(grid));
-}
-
-function createTile(cam) {
-  const tile = document.createElement("div");
-  tile.className = "tile";
-  tile.dataset.audio = "off"; // off → video only; on → listening; talk → mic live
-
-  const frame = document.createElement("iframe");
-  frame.className = "player";
-  frame.allow = "autoplay; microphone; fullscreen";
-  frame.setAttribute("allowfullscreen", "");
-  frame.src = videoOnlyUrl(cam.id);
-
-  const msg = document.createElement("div");
-  msg.className = "msg";
-  msg.textContent = "Connecting…";
-  frame.addEventListener("load", () => (msg.style.display = "none"));
-
-  const btns = [];
-  if (cam.audio) btns.push(`<button class="tile-btn audio-btn" title="Listen">🔊</button>`);
-  if (cam.talk) btns.push(`<button class="tile-btn talk-btn" title="Push to talk (two-way)">🎙</button>`);
-  btns.push(`<button class="tile-btn fs-btn" title="Fullscreen this camera">⛶</button>`);
-
-  const overlay = document.createElement("div");
-  overlay.className = "overlay";
-  overlay.innerHTML = `
-    <span class="label"><span class="dot"></span>${escapeHtml(cam.name || cam.id)}</span>
-    <span class="tile-btns">${btns.join("")}</span>`;
-
-  tile.append(frame, msg, overlay);
-
-  // Switching audio state means reloading the iframe with a different media set,
-  // because go2rtc negotiates tracks at connect time.
-  function setMode(mode) {
-    tile.dataset.audio = mode;
-    msg.style.display = "";
-    msg.textContent = "Connecting…";
-    frame.src =
-      mode === "talk" ? talkUrl(cam.id)
-      : mode === "on" ? audioUrl(cam.id)
-      : videoOnlyUrl(cam.id);
-    overlay.querySelector(".audio-btn")?.classList.toggle("active", mode === "on");
-    overlay.querySelector(".talk-btn")?.classList.toggle("active", mode === "talk");
-  }
-
-  overlay.querySelector(".audio-btn")?.addEventListener("click", () =>
-    setMode(tile.dataset.audio === "on" ? "off" : "on")
-  );
-  overlay.querySelector(".talk-btn")?.addEventListener("click", () =>
-    setMode(tile.dataset.audio === "talk" ? "off" : "talk")
-  );
-  overlay.querySelector(".fs-btn").addEventListener("click", () => {
-    if (tile.requestFullscreen) tile.requestFullscreen().catch(() => {});
-  });
-
-  tile._muteAudio = () => {
-    if (tile.dataset.audio !== "off") setMode("off");
-  };
-
-  return tile;
-}
-
-function buildWall(grid) {
-  wall.innerHTML = "";
-  wall.style.setProperty("--cols", colsFor(grid));
-  localStorage.setItem(GRID_KEY, String(grid));
-
-  if (!cameras.length) {
-    wall.innerHTML =
-      '<div class="empty">No cameras yet — <a href="config.html">add one in the Cameras page</a>.</div>';
-    statusEl.textContent = "";
-    return;
-  }
-
-  const shown = cameras.slice(0, grid);
-  shown.forEach((cam) => wall.appendChild(createTile(cam)));
-  statusEl.textContent = `${shown.length} / ${cameras.length} cameras`;
-}
-
-function muteAll() {
-  wall.querySelectorAll(".tile").forEach((t) => t._muteAudio && t._muteAudio());
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.hidden = false;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (toastEl.hidden = true), 2600);
 }
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-  );
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-// ── Wire up toolbar ──────────────────────────────────────────────────────────
-gridSelect.value = localStorage.getItem(GRID_KEY) || "4";
-gridSelect.addEventListener("change", () => buildWall(Number(gridSelect.value)));
-document.getElementById("mute-all").addEventListener("click", muteAll);
-document.getElementById("fullscreen").addEventListener("click", () => {
-  if (document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen().catch(() => {});
-});
+// ── Camera sidebar ────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const onWall = new Set(wall ? wall.currentCameraIds() : []);
+  const q = searchEl.value.trim().toLowerCase();
+  camListEl.innerHTML = "";
+  const shown = cameras.filter((c) => !q || (c.name || c.id).toLowerCase().includes(q));
 
-// ── Boot ─────────────────────────────────────────────────────────────────────
-statusEl.textContent = "Loading cameras…";
-fetch(`${ARGUS.backendBase()}/api/cameras`)
-  .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-  .then((list) => {
-    cameras = Array.isArray(list) ? list : [];
-    buildWall(Number(gridSelect.value));
-  })
-  .catch((err) => {
-    statusEl.textContent = "";
-    wall.innerHTML = `<div class="empty">Couldn't reach the backend (${escapeHtml(
-      err.message
-    )}).<br>If the UI is hosted separately, set the backend URL on the
-      <a href="config.html">Cameras page</a>.</div>`;
+  for (const cam of shown) {
+    const item = document.createElement("button");
+    item.className = "nav-item" + (onWall.has(cam.id) ? " nav-item--active" : "");
+    item.innerHTML = `
+      <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M2 7h3l2-2h4l2 2h5a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/>
+        <circle cx="11" cy="12" r="3.2"/>
+      </svg>
+      <span class="nav-item__name">${escapeHtml(cam.name || cam.id)}</span>
+      <span class="nav-item__tag">${onWall.has(cam.id) ? "on wall" : "add"}</span>`;
+    item.title = onWall.has(cam.id) ? `${cam.name} is on the wall` : `Add ${cam.name} to the wall`;
+    item.addEventListener("click", () => {
+      wall.addCamera(cam.id);
+      toast(`Added ${cam.name || cam.id}`);
+    });
+    camListEl.appendChild(item);
+  }
+  camCountEl.textContent = String(cameras.length);
+  hintEl.textContent = cameras.length
+    ? "Click a camera to place it · drag tile edges in Edit layout"
+    : "";
+}
+
+// ── Toolbar wiring ────────────────────────────────────────────────────────────
+function initToolbar() {
+  $("presets").querySelectorAll("[data-preset]").forEach((b) =>
+    b.addEventListener("click", () => {
+      wall.applyPreset(b.dataset.preset);
+      setActivePreset(b.dataset.preset);
+    })
+  );
+
+  const editBtn = $("edit-toggle");
+  editBtn.addEventListener("click", () => {
+    const next = wall.getMode() === "edit" ? "view" : "edit";
+    wall.setMode(next);
+    editBtn.setAttribute("aria-pressed", String(next === "edit"));
+    editBtn.textContent = next === "edit" ? "Done" : "Edit layout";
+    document.body.classList.toggle("editing", next === "edit");
   });
 
-// Register the PWA service worker (no-op outside a secure context).
+  const soundBtn = $("sound-toggle");
+  soundBtn.addEventListener("click", () => {
+    soundOn = !soundOn;
+    soundBtn.setAttribute("aria-pressed", String(soundOn));
+    soundBtn.textContent = soundOn ? "🔊" : "🔈";
+    wall.refreshStreams();
+    toast(soundOn ? "Sound on" : "Sound muted");
+  });
+
+  const sideBtn = $("sidebar-toggle");
+  sideBtn.addEventListener("click", () => {
+    const collapsed = document.body.classList.toggle("sidebar-collapsed");
+    sideBtn.setAttribute("aria-pressed", String(!collapsed));
+  });
+
+  $("fs-toggle").addEventListener("click", () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  });
+
+  // Keyboard: 1/2/3/4/5 presets, E edit, F fullscreen, [ sidebar, S sound.
+  document.addEventListener("keydown", (e) => {
+    if (/input|textarea/i.test(e.target.tagName)) return;
+    const presetKeys = { "1": "1", "2": "4", "3": "9", "4": "16" };
+    if (presetKeys[e.key]) { wall.applyPreset(presetKeys[e.key]); setActivePreset(presetKeys[e.key]); }
+    else if (e.key.toLowerCase() === "e") $("edit-toggle").click();
+    else if (e.key.toLowerCase() === "f") $("fs-toggle").click();
+    else if (e.key.toLowerCase() === "s") $("sound-toggle").click();
+    else if (e.key === "[") $("sidebar-toggle").click();
+  });
+
+  searchEl.addEventListener("input", renderSidebar);
+}
+
+function setActivePreset(name) {
+  $("presets").querySelectorAll("[data-preset]").forEach((b) =>
+    b.classList.toggle("seg__btn--active", b.dataset.preset === name));
+}
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function tickClock() {
+  const d = new Date();
+  $("clock").textContent = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+function start() {
+  wall = window.Wall.create({
+    container: wallEl,
+    urlFor,
+    nameFor,
+    storageKey: `argus.layout.${ARGUS.backendBase()}`,
+    onChange: renderSidebar,
+  });
+  initToolbar();
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // Kiosk mode: ?kiosk=1 hides all chrome for a wall-mounted display.
+  if (new URLSearchParams(location.search).get("kiosk") === "1") {
+    document.body.classList.add("kiosk");
+  }
+
+  fetch(`${ARGUS.backendBase()}/api/cameras`)
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    .then((list) => {
+      cameras = Array.isArray(list) ? list : [];
+      byId = new Map(cameras.map((c) => [c.id, c]));
+      wall.setCameras(cameras);
+      renderSidebar();
+      if (!cameras.length) toast("No cameras yet — add them in ⚙ settings");
+    })
+    .catch((err) => {
+      wallEl.innerHTML = `<div class="wall-empty">Couldn't reach the backend (${escapeHtml(err.message)}).<br>
+        Open <a href="config.html">⚙ settings</a> to connect.</div>`;
+    });
+}
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }
+
+start();

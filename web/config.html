@@ -13,6 +13,7 @@
   <header class="toolbar">
     <div class="brand">Argus<span>·</span>cameras</div>
     <div class="controls">
+      <button id="toggle-backend" class="btn" type="button" title="Backend connection">⚙ Backend</button>
       <a class="btn" href="index.html" title="Back to the wall">◀ Video wall</a>
     </div>
   </header>
@@ -24,7 +25,10 @@
     <!-- GATE: the only thing shown until a backend is connected. Cameras cannot
          be added without the box — it does all configuration and streaming. -->
     <section id="gate" class="gate" hidden>
-      <h2>Connect to your Argus box</h2>
+      <div class="gate-head">
+        <h2 id="gate-title">Connect to your Argus box</h2>
+        <button id="gate-close" class="btn" type="button" hidden>✕ Close</button>
+      </div>
       <p class="hint">
         Camera setup and streaming are handled entirely by the Argus box — there
         is nothing to configure here until it's connected. Find it on your
@@ -53,10 +57,8 @@
         <table id="cam-table" class="cam-table">
           <thead>
             <tr>
-              <th style="width:18%">Name</th>
+              <th style="width:22%">Name</th>
               <th>RTSP URL</th>
-              <th style="width:70px" title="Show the 🔊 listen button on this tile">Listen</th>
-              <th style="width:70px" title="Show the 🎙 push-to-talk button (intercom)">Talk</th>
               <th style="width:150px"></th>
             </tr>
           </thead>

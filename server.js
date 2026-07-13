@@ -117,23 +117,61 @@ async function syncGo2rtc(list) {
   return list.filter((c) => !(c.id in current)).map((c) => `${c.id}: not registered by the engine`);
 }
 
-// On boot go2rtc may not be up yet — retry the initial sync a few times.
-async function initialSync() {
-  const list = await loadCameras();
-  for (let attempt = 1; attempt <= 15; attempt++) {
-    try {
-      const res = await go2rtc("/api/streams");
-      if (res.ok) {
-        const errors = await syncGo2rtc(list);
-        console.log(`[argus] synced ${list.length} camera(s) to go2rtc` + (errors.length ? ` (${errors.length} warning(s))` : ""));
-        return;
-      }
-    } catch {
-      /* not ready */
-    }
+// The host's LAN IP that the *browser* can reach go2rtc's WebRTC media on.
+// In Docker (bridge) the container can't see it, so it's supplied via HOST_IP
+// (written by the installer). When not containerised, our own LAN IP is correct.
+function hostIp() {
+  if (process.env.HOST_IP && process.env.HOST_IP.trim()) return process.env.HOST_IP.trim();
+  try { fs.accessSync("/.dockerenv"); return ""; } catch {}
+  try { return require("./mdns").localIPv4() || ""; } catch { return ""; }
+}
+
+// Enable WebRTC by telling go2rtc which address to advertise as an ICE
+// candidate. Without this, WebRTC can't connect through Docker and the player
+// falls back to MSE — which fails to decode some cameras (e.g. UniFi) on Macs.
+// Returns true if go2rtc was restarted (caller should wait for it again).
+async function ensureWebrtcCandidate() {
+  const ip = hostIp();
+  if (!ip) return false;
+  const cand = `${ip}:8555`;
+  try {
+    const res = await go2rtc("/api/config");
+    const cfg = res.ok ? await res.text() : "";
+    if (cfg.includes(cand)) return false; // already advertised
+    await fetch(`${GO2RTC_URL}/api/config`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/yaml" },
+      body: `webrtc:\n  candidates:\n    - ${cand}\n`,
+    });
+    await fetch(`${GO2RTC_URL}/api/restart`, { method: "POST" }).catch(() => {});
+    console.log(`[argus] enabled WebRTC candidate ${cand}; restarting go2rtc`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function go2rtcUp() {
+  return go2rtc("/api/streams").then((r) => r.ok).catch(() => false);
+}
+async function waitForGo2rtc(tries = 15) {
+  for (let i = 0; i < tries; i++) {
+    if (await go2rtcUp()) return true;
     await new Promise((r) => setTimeout(r, 2000));
   }
-  console.warn("[argus] go2rtc not reachable at boot; will sync on next save");
+  return false;
+}
+
+// On boot go2rtc may not be up yet — wait, enable WebRTC, then sync cameras.
+async function initialSync() {
+  const list = await loadCameras();
+  if (!(await waitForGo2rtc())) {
+    console.warn("[argus] go2rtc not reachable at boot; will sync on next save");
+    return;
+  }
+  if (await ensureWebrtcCandidate()) await waitForGo2rtc();
+  const errors = await syncGo2rtc(list);
+  console.log(`[argus] synced ${list.length} camera(s) to go2rtc` + (errors.length ? ` (${errors.length} warning(s))` : ""));
 }
 
 // ── HTTP helpers ─────────────────────────────────────────────────────────────
