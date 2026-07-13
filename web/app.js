@@ -127,6 +127,22 @@ function setActivePreset(name) {
     b.classList.toggle("seg__btn--active", b.dataset.preset === name));
 }
 
+// This HTTPS page can't load the box's plain-HTTP video (browser "mixed
+// content"). Tell the user how to fix it instead of failing silently.
+function warnIfMixedContent() {
+  if (location.protocol !== "https:") return;
+  if (!ARGUS.go2rtcBase().startsWith("http://")) return;
+  const host = new URL(ARGUS.backendBase()).hostname;
+  const bar = document.createElement("div");
+  bar.className = "mixed-warn";
+  bar.innerHTML = `⚠ This secure (HTTPS) page can't load video from your box over plain HTTP — browsers block it.
+    On your LAN, open the box directly at <a href="http://${escapeHtml(host)}:8080">http://${escapeHtml(host)}:8080</a>.
+    For remote access, give the box HTTPS with Tailscale, then set that URL under <b>⚙ Backend</b>.
+    <button class="mixed-x" title="Dismiss">✕</button>`;
+  bar.querySelector(".mixed-x").addEventListener("click", () => bar.remove());
+  document.body.insertBefore(bar, document.body.firstChild);
+}
+
 // ── Clock ─────────────────────────────────────────────────────────────────────
 function tickClock() {
   const d = new Date();
@@ -150,6 +166,8 @@ function start() {
   if (new URLSearchParams(location.search).get("kiosk") === "1") {
     document.body.classList.add("kiosk");
   }
+
+  warnIfMixedContent();
 
   fetch(`${ARGUS.backendBase()}/api/cameras`)
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
