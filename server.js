@@ -103,17 +103,14 @@ async function syncGo2rtc(list) {
   const keep = new Set();
 
   for (const c of list) {
+    keep.add(c.id);
     if (c.transcode) {
-      // Raw go2rtc-native ingest (handles UniFi rtsps/SRTP), then an ffmpeg
-      // re-encode to clean H.264 that the wall plays — fixes streams that fail
-      // the browser MSE decoder and works over WebRTC and MSE, LAN or remote.
-      const raw = `${c.id}__raw`;
-      keep.add(raw);
-      keep.add(c.id);
-      await go2rtc(`/api/streams?name=${enc(raw)}&src=${enc(c.url)}`, "PUT").catch(() => {});
-      await go2rtc(`/api/streams?name=${enc(c.id)}&src=${enc(`ffmpeg:${raw}#video=h264#audio=aac`)}`, "PUT").catch(() => {});
+      // Force an ffmpeg re-encode to clean H.264/AAC read straight from the
+      // camera URL — fixes streams that fail the browser MSE decoder (UniFi
+      // especially) and plays over WebRTC and MSE, LAN or remote.
+      const src = `ffmpeg:${c.url}#video=h264#audio=aac`;
+      await go2rtc(`/api/streams?name=${enc(c.id)}&src=${enc(src)}`, "PUT").catch(() => {});
     } else {
-      keep.add(c.id);
       await go2rtc(`/api/streams?name=${enc(c.id)}&src=${enc(c.url)}`, "PUT").catch(() => {});
     }
   }
