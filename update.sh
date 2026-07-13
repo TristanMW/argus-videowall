@@ -62,7 +62,19 @@ fi
 
 # ── 4. Stop + remove containers (KEEP volumes → camera list survives) ────────
 info "Stopping and removing containers…"
-$DK compose down --remove-orphans
+if ! $DK compose down --remove-orphans; then
+  warn "The Docker daemon refused to stop a container. Trying a forced removal…"
+  $DK rm -f argus-web argus-go2rtc 2>/dev/null || sudo docker rm -f argus-web argus-go2rtc 2>/dev/null || true
+  if $DK ps -a --format '{{.Names}}' 2>/dev/null | grep -qE '^argus-(web|go2rtc)$'; then
+    err "Couldn't remove the containers — the Docker daemon is in a bad state."
+    err "This is a host issue (often AppArmor, or snap-installed Docker), not Argus."
+    err "Fix it, then re-run ./update.sh — your cameras are safe in the argus-data volume:"
+    err "    sudo systemctl restart docker"
+    err "    (if 'snap list docker' shows Docker, switch to apt Docker: get.docker.com)"
+    exit 1
+  fi
+  warn "Forced removal succeeded; continuing."
+fi
 
 # ── 5. Update images + rebuild + start ───────────────────────────────────────
 info "Updating base images…"
