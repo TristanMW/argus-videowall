@@ -1,4 +1,4 @@
-# Argus — App Details
+# Argus Video Wall — App Details
 
 > **Argus** — the hundred-eyed, all-seeing watchman of Greek myth.
 > A view-only RTSP video wall.

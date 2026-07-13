@@ -22,6 +22,9 @@ go2rtc/go2rtc
 go2rtc/go2rtc.exe
 go2rtc/*.zip
 
+# Runtime-written config backup created by update.sh
+go2rtc/go2rtc.yaml.bak
+
 # ── Firebase CLI local state ─────────────────────────────────────────────────
 .firebase/
 firebase-debug.log

@@ -1,4 +1,4 @@
-# Argus — self-hosted RTSP video wall
+# Argus Video Wall
 
 A browser-based, **view-only** video wall for RTSP cameras — including devices
 SmartPSS and similar apps refuse to add, like a Fanvil intercom. Low latency,
@@ -184,8 +184,14 @@ Run these from the `argus-videowall` folder:
 | Start | `docker compose up -d` |
 | Stop | `docker compose down` |
 | View logs | `docker compose logs -f` |
-| Update to latest | `git pull && docker compose up -d --build` |
+| **Update to latest** | `./update.sh` |
 | Restart just the engine | `docker compose restart go2rtc` |
+
+`./update.sh` pulls the latest code, tears down and rebuilds the containers, and
+updates images — **without touching your saved cameras** (they live in the
+`argus-data` volume, which is preserved). Your wall layout is stored in the
+browser and is likewise unaffected. If a Firebase hosting config is present on
+the machine, it also redeploys the hosted UI.
 
 ---
 

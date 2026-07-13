@@ -204,6 +204,7 @@ body {
 /* Body modifiers */
 .sidebar-collapsed .sidebar { width: 0; border-right: 0; overflow: hidden; }
 .kiosk .app-bar, .kiosk .sidebar { display: none; }
+.is-fullscreen .sidebar { display: none; }
 
 /* ============================================================================
    Config page (config.html) — header + camera table + connection gate.

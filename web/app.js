@@ -103,6 +103,10 @@ function initToolbar() {
     if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen().catch(() => {});
   });
+  // In fullscreen, hide the camera sidebar so the wall uses the whole screen.
+  document.addEventListener("fullscreenchange", () => {
+    document.body.classList.toggle("is-fullscreen", !!document.fullscreenElement);
+  });
 
   // Keyboard: 1/2/3/4/5 presets, E edit, F fullscreen, [ sidebar, S sound.
   document.addEventListener("keydown", (e) => {
