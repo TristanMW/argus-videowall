@@ -15,20 +15,32 @@ function DaemonUp { if (-not (Have docker)) { return $false }; docker info *> $n
 function Info($m) { Write-Host "[argus] $m" -ForegroundColor Cyan }
 function Warn($m) { Write-Host "[argus] $m" -ForegroundColor Yellow }
 
+# Launch Docker Desktop by its real path (Start-Process "Docker Desktop" fails
+# because that isn't a resolvable command). No-throw: warn if it isn't found.
+function Start-DockerDesktop {
+  $paths = @(
+    "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe",
+    "${env:ProgramFiles(x86)}\Docker\Docker\Docker Desktop.exe"
+  )
+  $exe = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
+  if ($exe) { Start-Process $exe; return }
+  Warn "Couldn't auto-start Docker Desktop. Open it from the Start menu, wait for 'Engine running', then re-run this script."
+}
+
 # ── 1. Ensure Docker is installed and running ────────────────────────────────
 if (DaemonUp) {
   Info "Existing Docker detected - building on it."
 }
 elseif (Have docker) {
   Warn "Docker is installed but not running. Starting Docker Desktop..."
-  Start-Process "Docker Desktop" -ErrorAction SilentlyContinue
+  Start-DockerDesktop
 }
 else {
   Info "Docker not found. Installing Docker Desktop via winget..."
   if (Have winget) {
     winget install -e --id Docker.DockerDesktop --accept-source-agreements --accept-package-agreements
-    Warn "Docker Desktop installed. A sign-out or reboot may be required (WSL2 backend)."
-    Start-Process "Docker Desktop" -ErrorAction SilentlyContinue
+    Warn "Docker Desktop installed. A sign-out or REBOOT is usually required for the WSL2 backend."
+    Start-DockerDesktop
   }
   else {
     Write-Error "winget isn't available. Install Docker Desktop from https://www.docker.com/products/docker-desktop/ then re-run this script."
