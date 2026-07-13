@@ -41,6 +41,15 @@ const SEED = [
 const slugify = (s) =>
   String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "camera";
 
+// UniFi Protect's copy-paste URL ends with `?enableSrtp`, but go2rtc
+// mis-depacketizes that SRTP stream (missing PPS → the video won't decode).
+// The same stream plays cleanly without it, so strip it automatically.
+function cleanUrl(u) {
+  return u
+    .replace(/\?enableSrtp(&|$)/i, (_m, tail) => (tail === "&" ? "?" : ""))
+    .replace(/&enableSrtp(&|$)/i, (_m, tail) => (tail === "&" ? "&" : ""));
+}
+
 // Force a clean, unique, valid list regardless of what the client sent.
 function normalize(list) {
   const seen = new Set();
@@ -54,7 +63,7 @@ function normalize(list) {
     out.push({
       id,
       name: String(c.name || id).slice(0, 80),
-      url: c.url.trim(),
+      url: cleanUrl(c.url.trim()),
       transcode: !!c.transcode,
     });
   }

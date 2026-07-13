@@ -141,18 +141,16 @@ Use the per-row **Test ▶** button to open a single stream and confirm it works
   ```
   but the path **varies by model/firmware** — confirm in the device web UI under
   *Intercom → RTSP*, or its datasheet.
-- **UniFi Protect:** the UI shows an encrypted URL like
-  `rtsps://<console-ip>:7441/<token>?enableSrtp`. Prefer the **unencrypted**
-  form — same token, port **7447**, no `?enableSrtp` — which is far more
-  compatible with go2rtc:
+- **UniFi Protect:** the UI shows a URL ending in `?enableSrtp`, e.g.
+  `rtsps://<console-ip>:7441/<token>?enableSrtp`. **Drop the `?enableSrtp`** —
+  go2rtc mis-decodes UniFi's SRTP (missing PPS → the video won't play), but the
+  same stream is perfect without it:
   ```
-  rtsp://<console-ip>:7447/<token>
+  rtsps://<console-ip>:7441/<token>
   ```
-  Enable a lower-resolution stream in Protect for wall tiles. UniFi streams
-  often fail the browser MSE decoder — if a UniFi tile won't play, tick
-  **Transcode** on that camera (Cameras page). It re-encodes to clean H.264 in
-  go2rtc so it plays over both WebRTC and MSE, on the LAN or remotely (costs some
-  CPU).
+  Argus strips `?enableSrtp` for you automatically, so you can paste the URL as
+  copied. (The older unencrypted `rtsp://…:7447/<token>` form is disabled on
+  current UniFi OS.) Enable a lower-resolution stream in Protect for wall tiles.
 - **Test first:** paste the URL into VLC (*Media → Open Network Stream*) or run
   `ffprobe "<url>"` before adding it, so you know the URL itself is good.
 - The streaming engine has its own dashboard at **http://localhost:1984** for
