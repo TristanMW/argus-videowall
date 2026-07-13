@@ -55,8 +55,7 @@ function normalize(list) {
       id,
       name: String(c.name || id).slice(0, 80),
       url: c.url.trim(),
-      audio: !!c.audio,
-      talk: !!c.talk,
+      transcode: !!c.transcode,
     });
   }
   return out;
@@ -100,20 +99,33 @@ async function listGo2rtcStreams() {
 // not by the PUT status code: go2rtc creates the stream live but can return 400
 // from its (secondary) config-persist step, which we don't rely on.
 async function syncGo2rtc(list) {
-  for (const c of list) {
-    const q = `/api/streams?name=${encodeURIComponent(c.id)}&src=${encodeURIComponent(c.url)}`;
-    await go2rtc(q, "PUT").catch(() => {});
-  }
+  const enc = encodeURIComponent;
+  const keep = new Set();
 
-  const current = await listGo2rtcStreams();
-  const keep = new Set(list.map((c) => c.id));
-  for (const name of Object.keys(current)) {
-    if (!keep.has(name)) {
-      await go2rtc(`/api/streams?src=${encodeURIComponent(name)}`, "DELETE").catch(() => {});
+  for (const c of list) {
+    if (c.transcode) {
+      // Raw go2rtc-native ingest (handles UniFi rtsps/SRTP), then an ffmpeg
+      // re-encode to clean H.264 that the wall plays — fixes streams that fail
+      // the browser MSE decoder and works over WebRTC and MSE, LAN or remote.
+      const raw = `${c.id}__raw`;
+      keep.add(raw);
+      keep.add(c.id);
+      await go2rtc(`/api/streams?name=${enc(raw)}&src=${enc(c.url)}`, "PUT").catch(() => {});
+      await go2rtc(`/api/streams?name=${enc(c.id)}&src=${enc(`ffmpeg:${raw}#video=h264#audio=aac`)}`, "PUT").catch(() => {});
+    } else {
+      keep.add(c.id);
+      await go2rtc(`/api/streams?name=${enc(c.id)}&src=${enc(c.url)}`, "PUT").catch(() => {});
     }
   }
 
-  // Real failures = cameras that never registered (bad URL, or engine down).
+  const current = await listGo2rtcStreams();
+  for (const name of Object.keys(current)) {
+    if (!keep.has(name)) {
+      await go2rtc(`/api/streams?src=${enc(name)}`, "DELETE").catch(() => {});
+    }
+  }
+
+  // Real failures = cameras whose playable stream never registered.
   return list.filter((c) => !(c.id in current)).map((c) => `${c.id}: not registered by the engine`);
 }
 
@@ -264,6 +276,10 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.on("error", (e) => {
+  console.error(`[argus] server error on :${PORT}:`, e.message);
+  process.exit(1);
+});
 server.listen(PORT, () => {
   console.log(`[argus] web UI on :${PORT}, go2rtc at ${GO2RTC_URL}`);
   initialSync();

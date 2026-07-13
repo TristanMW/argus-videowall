@@ -23,6 +23,7 @@ function el(tag, attrs = {}, children = []) {
 function addRow(cam = {}) {
   const name = el("input", { type: "text", class: "in name", placeholder: "Front door", value: cam.name || "" });
   const url = el("input", { type: "text", class: "in url", placeholder: "rtsp://user:pass@192.168.1.108:554/…", value: cam.url || "" });
+  const transcode = el("input", { type: "checkbox", checked: cam.transcode });
 
   // "Test" opens go2rtc's own player for this stream — only meaningful once the
   // camera has been saved (so the stream id exists in the engine).
@@ -38,12 +39,14 @@ function addRow(cam = {}) {
   const tr = el("tr", {}, [
     el("td", {}, name),
     el("td", {}, url),
+    el("td", { class: "center" }, transcode),
     el("td", { class: "center row-actions" }, [test, remove]),
   ]);
   tr._get = () => ({
     id: cam.id, // preserved so the backend keeps a stable stream id
     name: name.value.trim(),
     url: url.value.trim(),
+    transcode: transcode.checked,
   });
   rowsEl.append(tr);
   return tr;

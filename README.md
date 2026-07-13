@@ -148,8 +148,11 @@ Use the per-row **Test ▶** button to open a single stream and confirm it works
   ```
   rtsp://<console-ip>:7447/<token>
   ```
-  Enable a lower-resolution stream in Protect for wall tiles. Note: UniFi
-  streams often fail the MSE fallback in-browser, so WebRTC (see below) matters.
+  Enable a lower-resolution stream in Protect for wall tiles. UniFi streams
+  often fail the browser MSE decoder — if a UniFi tile won't play, tick
+  **Transcode** on that camera (Cameras page). It re-encodes to clean H.264 in
+  go2rtc so it plays over both WebRTC and MSE, on the LAN or remotely (costs some
+  CPU).
 - **Test first:** paste the URL into VLC (*Media → Open Network Stream*) or run
   `ffprobe "<url>"` before adding it, so you know the URL itself is good.
 - The streaming engine has its own dashboard at **http://localhost:1984** for
