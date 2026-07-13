@@ -151,8 +151,7 @@
 
       const frame = document.createElement("iframe");
       frame.className = "player";
-      frame.allow = "autoplay; fullscreen";
-      frame.setAttribute("allowfullscreen", "");
+      frame.allow = "autoplay; fullscreen"; // `allow` covers fullscreen; no allowfullscreen attr
 
       const chrome = document.createElement("div");
       chrome.className = "tile-chrome";
