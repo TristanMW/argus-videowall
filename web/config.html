@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Argus — Cameras</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0d0f12" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand">Argus<span>·</span>cameras</div>
+    <div class="controls">
+      <a class="btn" href="index.html" title="Back to the wall">◀ Video wall</a>
+    </div>
+  </header>
+
+  <main class="config">
+    <!-- Connection status bar — always reflects the live backend link. -->
+    <div id="conn-status" class="conn" hidden></div>
+
+    <!-- GATE: the only thing shown until a backend is connected. Cameras cannot
+         be added without the box — it does all configuration and streaming. -->
+    <section id="gate" class="gate" hidden>
+      <h2>Connect to your Argus box</h2>
+      <p class="hint">
+        Camera setup and streaming are handled entirely by the Argus box — there
+        is nothing to configure here until it's connected. Find it on your
+        network, or enter its address.
+      </p>
+      <div class="backend-row">
+        <button id="detect" class="btn primary">🔍 Detect on network</button>
+        <input id="backend-url" class="in" type="text" placeholder="http://argus.local:8080  or  https://your-box.tailnet.ts.net" />
+        <button id="save-backend" class="btn">Connect</button>
+        <span id="backend-note" class="status"></span>
+      </div>
+      <div id="detect-results" class="detect-results"></div>
+    </section>
+
+    <!-- EDITOR: revealed only once a backend connection is confirmed. -->
+    <section id="editor" hidden>
+      <p class="hint">
+        Add each camera's RTSP URL below. <strong>Save &amp; apply</strong> pushes
+        the changes to the box's streaming engine live — then head back to the
+        video wall. Tip: test a URL in VLC first (<em>Media → Open Network Stream</em>).
+      </p>
+
+      <div id="banner" class="banner" hidden></div>
+
+      <div class="table-wrap">
+        <table id="cam-table" class="cam-table">
+          <thead>
+            <tr>
+              <th style="width:18%">Name</th>
+              <th>RTSP URL</th>
+              <th style="width:70px" title="Show the 🔊 listen button on this tile">Listen</th>
+              <th style="width:70px" title="Show the 🎙 push-to-talk button (intercom)">Talk</th>
+              <th style="width:150px"></th>
+            </tr>
+          </thead>
+          <tbody id="cam-rows"></tbody>
+        </table>
+      </div>
+
+      <div class="config-actions">
+        <button id="add-row" class="btn">＋ Add camera</button>
+        <div class="spacer"></div>
+        <button id="save" class="btn primary">💾 Save &amp; apply</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="settings.js"></script>
+  <script src="config-ui.js"></script>
+</body>
+</html>

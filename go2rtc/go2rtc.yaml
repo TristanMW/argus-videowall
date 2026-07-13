@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# go2rtc configuration — the streaming engine behind Argus.
+#
+# go2rtc ingests each camera's RTSP stream once and re-serves it to the browser
+# as low-latency WebRTC (with audio). No transcoding by default = tiny CPU use.
+#
+# NOTE: you don't edit cameras here. Argus manages the `streams` section for you
+# via the web config page (http://<host>:8080/config.html) and applies changes
+# to go2rtc live. This file only holds the base engine settings below.
+#
+# Docs: https://github.com/AlexxIT/go2rtc
+# ─────────────────────────────────────────────────────────────────────────────
+
+# NOTE: there is deliberately no `streams:` key here. The Argus backend adds
+# cameras at runtime via the go2rtc stream API; go2rtc then persists them into a
+# `streams:` block itself. (A pre-existing empty `streams: {}` breaks go2rtc's
+# config patcher, so we leave it out.)
+
+# Web UI + API + WebRTC signaling. go2rtc's own dashboard is available at
+# http://<host>:1984 for testing an individual stream.
+api:
+  listen: ":1984"
+
+# WebRTC media. The wall already works via the MSE fallback with no changes.
+# To enable true low-latency WebRTC — recommended in Docker (bridge networking)
+# or when accessing from another device/subnet/VPN — uncomment below and set the
+# LAN IP of the host running go2rtc/Docker:
+webrtc:
+  listen: ":8555"
+  # candidates:
+  #   - 192.168.1.50:8555   # <- the LAN IP of the Docker host / go2rtc machine
+
+# Keep logs readable; bump to "debug" if a stream won't connect.
+log:
+  level: info

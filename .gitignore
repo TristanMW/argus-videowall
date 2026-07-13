@@ -1,0 +1,32 @@
+# ── Secrets — NEVER commit these ─────────────────────────────────────────────
+# Firebase Admin SDK / service-account keys (grant admin access to the project).
+*firebase-adminsdk*.json
+*serviceAccount*.json
+*service-account*.json
+*.serviceaccount.json
+serviceAccountKey.json
+.env
+.env.*
+secrets/
+*.pem
+*.key
+
+# ── Runtime / build artifacts ────────────────────────────────────────────────
+data/
+node_modules/
+*.log
+.DS_Store
+
+# ── Local go2rtc binary (downloaded, not committed) ──────────────────────────
+go2rtc/go2rtc
+go2rtc/go2rtc.exe
+go2rtc/*.zip
+
+# ── Firebase CLI local state ─────────────────────────────────────────────────
+.firebase/
+firebase-debug.log
+
+# ── Firebase hosting (personal deployment — not part of the Docker/self-host repo)
+firebase.json
+.firebaserc
+deploy-hosting.sh

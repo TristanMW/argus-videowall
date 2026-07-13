@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Argus — Video Wall</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0d0f12" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand">Argus<span>·</span>video wall</div>
+
+    <div class="controls">
+      <label class="grid-picker">
+        Layout
+        <select id="grid-select">
+          <option value="1">1 × 1</option>
+          <option value="4">2 × 2</option>
+          <option value="6">2 × 3</option>
+          <option value="9">3 × 3</option>
+          <option value="16">4 × 4</option>
+        </select>
+      </label>
+
+      <button id="mute-all" class="btn" title="Mute every tile">🔇 Mute all</button>
+      <button id="fullscreen" class="btn" title="Fullscreen the wall">⛶ Fullscreen</button>
+      <a class="btn" href="config.html" title="Add / edit cameras">⚙ Cameras</a>
+      <span id="status" class="status"></span>
+    </div>
+  </header>
+
+  <main id="wall" class="wall"></main>
+
+  <script src="settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

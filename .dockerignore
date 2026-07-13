@@ -1,0 +1,25 @@
+# Keep the build context small — only server.js, mdns.js and web/ are needed.
+go2rtc/go2rtc
+go2rtc/go2rtc.exe
+go2rtc/*.zip
+data/
+node_modules/
+*.log
+.DS_Store
+
+# Secrets must never enter the image (defense in depth — the Dockerfile doesn't
+# COPY them anyway, but keep them out of the build context entirely).
+*firebase-adminsdk*.json
+*serviceAccount*.json
+*service-account*.json
+serviceAccountKey.json
+.env
+.env.*
+secrets/
+*.pem
+*.key
+
+# Firebase / hosting files aren't needed in the backend image.
+firebase.json
+.firebaserc
+.firebase/

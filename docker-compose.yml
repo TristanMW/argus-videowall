@@ -1,0 +1,66 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Argus — video wall, fully containerised.
+#
+#   docker compose up -d --build   # builds the UI, pulls go2rtc, starts all
+#   → open  http://localhost:8080          (video wall)
+#   → open  http://localhost:8080/config.html   (add / edit cameras)
+#
+# Manage cameras entirely from the browser — no file editing. The web service
+# persists them to a volume and applies them to go2rtc live on save.
+#
+# Services:
+#   go2rtc — streaming engine (official image, auto-pulled). Ingests RTSP,
+#            serves WebRTC/MSE to the browser.
+#   web    — Argus UI + backend (built from ./Dockerfile). Serves the wall and
+#            config page, owns the camera list, syncs go2rtc.
+#
+# No recording. The only persisted data is the camera list.
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: argus-go2rtc
+    restart: unless-stopped
+    ports:
+      - "1984:1984"        # API + web UI + MSE/WebSocket (the MSE fallback path)
+      - "8555:8555/tcp"    # WebRTC media
+      - "8555:8555/udp"    # WebRTC media
+    volumes:
+      - ./go2rtc/go2rtc.yaml:/config/go2rtc.yaml   # base engine config (rw)
+
+  web:
+    build: .
+    container_name: argus-web
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - GO2RTC_URL=http://go2rtc:1984
+    volumes:
+      - argus-data:/data   # persisted camera list (cameras.json)
+    depends_on:
+      - go2rtc
+
+    # ── argus.local discovery (optional) ─────────────────────────────────────
+    # The backend advertises `argus.local` via mDNS so LAN devices can find the
+    # box with no IP. Multicast only reaches the LAN under HOST networking (Linux
+    # hosts / mini-PC / NAS). To enable, replace the `ports`/`depends_on` above
+    # with host networking and point the backend at go2rtc on localhost:
+    #
+    #   network_mode: host
+    #   environment:
+    #     - GO2RTC_URL=http://localhost:1984
+    #
+    # (On Docker Desktop for Windows/Mac, host networking can't bridge multicast
+    # to the physical LAN, so argus.local may not resolve there — use the box IP,
+    # localhost on the same machine, or a Tailscale name instead. "Detect on
+    # network" in the UI still finds those.)
+
+volumes:
+  argus-data:
+
+# ── WebRTC over Docker ───────────────────────────────────────────────────────
+# The wall works out of the box via go2rtc's MSE fallback (~0.5–1s latency) over
+# the published :1984 port. For true sub-0.2s WebRTC, uncomment the
+# `webrtc.candidates` block in go2rtc/go2rtc.yaml and set your host's LAN IP
+# (on Linux you can instead give the go2rtc service `network_mode: host`).
