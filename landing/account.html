@@ -89,7 +89,7 @@
   <!-- ── Signed in ── -->
   <section id="me" hidden>
     <h1>Your license</h1>
-    <p class="sub"><span id="who"></span> · <a href="#" id="signout">sign out</a></p>
+    <p class="sub"><span id="who"></span> · <a href="#" id="signout">sign out</a><span id="admin-link" hidden> · <a href="admin.html">admin panel</a></span></p>
 
     <div class="card">
       <h2>Cameras <span class="badge" id="lic-badge"></span></h2>
@@ -191,6 +191,7 @@ auth.onAuthStateChanged((user) => {
   if (unsub) { unsub(); unsub = null; }
   if (!user) return;
   $("who").textContent = user.email;
+  $("admin-link").hidden = user.email !== "tristan@alasia.co.za";
   const ref = db.collection("licenses").doc(user.uid);
   unsub = ref.onSnapshot(
     (snap) => {
