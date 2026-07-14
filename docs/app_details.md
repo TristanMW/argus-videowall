@@ -71,6 +71,9 @@ frontend owns layout, labels, grid switching, mute-all, and fullscreen.
 | `landing/` | Public landing page at argus-videowall.web.app: self-contained dark-theme page (inline CSS + SVG product mockups, no external assets), reusing the app's design tokens. Includes a self-destructing `sw.js` to migrate browsers that had installed the old hosted app shell as a PWA. |
 | `deploy-hosting.sh` | Deploys `web/` to Firebase Hosting using a service-account key **by reference** (never copied/committed); refuses a key inside the repo. |
 | `.gitignore` / `.dockerignore` | Block service-account keys and other secrets from ever being committed or entering the image. |
+| `licensing.js` | Subscription enforcement: 2 cameras free, Ed25519-signed keys (verified offline against the embedded public key) raise the limit. Named `licensing` — `require("./license")` would hit the `LICENSE` text file on case-insensitive filesystems. |
+| `tools/license-sign.js` | CLI to issue keys (`--email --extra N [--months M]`); signs with the private key kept OUTSIDE the repo (`~/Documents/Wiltech/argus-license-keys/`). |
+| `docs/monetisation.md` | Runbook: pricing model, key issuing, PayPal plan setup, automation roadmap, licensing caveat. |
 | `start-windows.bat` / `start-macos.sh` | Non-Docker manual run (needs Node + a downloaded go2rtc binary; visible windows). |
 | `setup-windows.bat` / `setup-windows.ps1` | **No-Docker Windows install.** Installs Node (winget) + go2rtc if missing, opens firewall (group "Argus"), registers the "Argus Video Wall" scheduled task to run at every boot as SYSTEM — silent, no login needed. Re-runnable. |
 | `run-argus.ps1` | Headless supervisor the boot task runs: waits for the LAN, starts go2rtc + `server.js` hidden, restarts either on crash, logs to `logs\`. |
@@ -175,6 +178,20 @@ targeted probe rather than a full sweep.
 ## Changelog
 
 ### 2026-07-14 (later)
+- **Monetisation: 2 cameras free, $2/camera/month via PayPal + offline license
+  keys.** New `licensing.js` (Ed25519-verified `ARGUS.…` keys, embedded public
+  key, private key outside the repo) and `tools/license-sign.js` issuer.
+  Backend: `PUT /api/cameras` returns 402 `license_limit` above the limit;
+  boot sync registers only the licensed slice (never deletes);
+  `GET/PUT/DELETE /api/license` endpoints. Config page: License section
+  (status + paste-key activate) and a friendly 402 banner. Landing page:
+  Pricing section + copy updated from "free/MIT" to freemium (not redeployed —
+  site intentionally offline). `docs/monetisation.md` runbook covers PayPal
+  plan setup (quantity-based $2 plan), key policy, automation roadmap, and the
+  open MIT-relicensing decision. Verified end-to-end: free-tier 402 → key
+  activation (limit 5, +5d grace) → save OK → tampered/expired keys rejected →
+  key removal reverts. Gotcha fixed: `require("./license")` resolved to the
+  `LICENSE` text file on macOS.
 - **Camera list can be minimised outside fullscreen** (field request — walls are
   often used windowed). Added a visible `«` collapse button on the panel header
   (the toolbar `☰` and the `[` key already toggled it, but weren't obvious),

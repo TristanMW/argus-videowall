@@ -208,6 +208,7 @@
       <a href="#features">Features</a>
       <a href="#how">How it works</a>
       <a href="#install">Install</a>
+      <a href="#pricing">Pricing</a>
       <a href="#security">Privacy</a>
       <a href="#faq">FAQ</a>
     </div>
@@ -219,7 +220,7 @@
 <!-- ══ Hero ═══════════════════════════════════════════════════════════ -->
 <header class="hero" id="top">
   <div class="wrap">
-    <span class="kicker">Free &amp; open-source · Self-hosted</span>
+    <span class="kicker">Self-hosted · 2 cameras free forever</span>
     <h1>Every camera. One wall.<br><span class="hl">Zero cloud.</span></h1>
     <p class="lede">
       Argus is a view-only video wall for RTSP cameras — Dahua, Hikvision, UniFi,
@@ -231,7 +232,7 @@
       <a class="btn btn-primary" href="#install">⬇ Install on Windows</a>
       <a class="btn btn-ghost" href="#how">See how it works</a>
     </div>
-    <p class="hero-note">Also runs on macOS &amp; Linux · MIT licensed · No accounts, no subscription, no telemetry</p>
+    <p class="hero-note">Also runs on macOS &amp; Linux · 2 cameras free forever, then $2/camera/month · No cloud, no telemetry</p>
 
     <!-- Video wall mock -->
     <div class="hero-visual" role="img" aria-label="The Argus video wall: a 3-by-2 grid of live camera tiles with layout and mute controls">
@@ -442,7 +443,7 @@
   <div class="wrap">
     <div class="stat"><b>~0.2 s</b><span>glass-to-glass latency over WebRTC</span></div>
     <div class="stat"><b>100 %</b><span>local — video never touches a cloud</span></div>
-    <div class="stat"><b>0</b><span>accounts, subscriptions &amp; telemetry</span></div>
+    <div class="stat"><b>0</b><span>cloud accounts &amp; telemetry</span></div>
     <div class="stat"><b>Any</b><span>RTSP device — cameras &amp; intercoms</span></div>
   </div>
 </div>
@@ -738,6 +739,45 @@ rtsp://192.168.1.90/live/av0          <span class="c"># Fanvil intercom</span></
   </div>
 </section>
 
+<!-- ══ Pricing ═══════════════════════════════════════════════════════ -->
+<section id="pricing" style="padding-top:0">
+  <div class="wrap">
+    <span class="kicker">Pricing</span>
+    <h2>Two cameras free, forever. Grow for $2.</h2>
+    <p class="lede">
+      No trials, no feature gates — the free tier is the full product. Pay only
+      when your wall grows past two cameras, and only for the cameras you add.
+    </p>
+    <div class="install-grid" style="max-width:860px">
+      <div class="install-card">
+        <h3>Free</h3>
+        <p class="sub"><b style="color:var(--text-primary);font-size:26px">$0</b> — forever</p>
+        <ul>
+          <li><b>2 cameras</b></li>
+          <li>Every feature: WebRTC, two-way talk, PWA, discovery</li>
+          <li>No account, no card, no time limit</li>
+        </ul>
+        <pre><span class="c"># nothing to activate — just install</span></pre>
+      </div>
+      <div class="install-card rec">
+        <span class="pill">Pay as you grow</span>
+        <h3>More cameras</h3>
+        <p class="sub"><b style="color:var(--text-primary);font-size:26px">$2</b> per additional camera / month</p>
+        <ul>
+          <li>Subscribe with <b>PayPal</b> for the cameras you add beyond 2</li>
+          <li>You receive a <b>license key</b> by email — paste it into Argus settings</li>
+          <li>Keys verify <b>offline on your box</b> — still no cloud, no accounts</li>
+          <li>Cancel anytime; the wall falls back to the 2 free cameras</li>
+        </ul>
+        <!-- PayPal subscribe button goes here once the billing plan exists:
+             see docs/monetisation.md. Until then, email support to subscribe. -->
+        <a class="btn btn-primary" href="mailto:tristan@alasia.co.za?subject=Argus%20subscription"
+           style="justify-content:center">Subscribe — $2/camera/month</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ══ Security ══════════════════════════════════════════════════════ -->
 <section id="security" style="background:var(--bg-panel); border-top:1px solid var(--border-subtle); border-bottom:1px solid var(--border-subtle)">
   <div class="wrap">
@@ -755,7 +795,7 @@ rtsp://192.168.1.90/live/av0          <span class="c"># Fanvil intercom</span></
           <li><span class="tick">✓</span><span><b>No accounts, no telemetry, no third-party scripts.</b> The UI bundles zero CDNs, trackers or analytics — it only ever talks to your own box.</span></li>
           <li><span class="tick">✓</span><span><b>No recording, by design.</b> Argus is a live monitor. There is no footage archive to leak, subpoena or fill a disk with.</span></li>
           <li><span class="tick">✓</span><span><b>Private remote access done right.</b> Watch from anywhere over <a href="https://tailscale.com" rel="noopener">Tailscale</a> — a WireGuard-encrypted private mesh with valid HTTPS — instead of port-forwarding cameras to the internet.</span></li>
-          <li><span class="tick">✓</span><span><b>Open source, MIT licensed.</b> Every line is auditable. No binary blobs beyond the open-source go2rtc engine itself.</span></li>
+          <li><span class="tick">✓</span><span><b>Fully auditable.</b> The code running on your box is plain, readable JavaScript — you can inspect every line of what touches your cameras. Even license keys are verified locally, offline.</span></li>
         </ul>
       </div>
       <div class="shot" role="img" aria-label="Diagram: your network stays private; remote viewers connect through an encrypted Tailscale tunnel">
@@ -833,7 +873,7 @@ rtsp://192.168.1.90/live/av0          <span class="c"># Fanvil intercom</span></
       </details>
       <details>
         <summary>What does it cost?</summary>
-        <p>Nothing. Argus is MIT-licensed open source. There is no cloud tier, no premium unlock and no subscription — it's yours to run, modify and redistribute.</p>
+        <p>Two cameras are free forever, with every feature included. From the third camera onwards it's $2 per camera per month, paid by PayPal subscription — you get a license key by email and paste it into Argus once. The key is verified on your own box, offline; there's still no cloud account and no telemetry. Cancel anytime and the wall simply falls back to the two free cameras.</p>
       </details>
     </div>
   </div>
@@ -844,7 +884,7 @@ rtsp://192.168.1.90/live/av0          <span class="c"># Fanvil intercom</span></
   <div class="wrap">
     <span class="kicker">Get started</span>
     <h2>Put every camera on one screen tonight</h2>
-    <p class="lede" style="margin:0 auto">Free, open source, and yours — from download to live wall in about two minutes.</p>
+    <p class="lede" style="margin:0 auto">Two cameras free forever — from download to live wall in about two minutes.</p>
     <div class="hero-ctas">
       <a class="btn btn-primary" href="https://github.com/TristanMW/argus-videowall" rel="noopener">Get Argus on GitHub</a>
       <a class="btn btn-ghost" href="#install">Installation guide</a>
@@ -855,7 +895,7 @@ rtsp://192.168.1.90/live/av0          <span class="c"># Fanvil intercom</span></
 <footer>
   <div class="wrap foot">
     <img src="icons/icon-192.png" alt="">
-    <span><b style="color:var(--text-primary)">Argus</b> — the hundred-eyed watchman. MIT © 2026 Tristan MW.</span>
+    <span><b style="color:var(--text-primary)">Argus</b> — the hundred-eyed watchman. © 2026 Tristan MW.</span>
     <span class="sp">
       <a href="https://github.com/TristanMW/argus-videowall" rel="noopener">GitHub</a>
       <a href="https://github.com/AlexxIT/go2rtc" rel="noopener">go2rtc</a>

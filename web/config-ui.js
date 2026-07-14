@@ -72,6 +72,16 @@ async function save() {
       body: JSON.stringify(list),
     });
     const data = await res.json();
+    if (res.status === 402 && data.error === "license_limit") {
+      banner(
+        "warn",
+        `Your plan covers <b>${data.limit}</b> camera(s) and this list has <b>${data.requested}</b>. ` +
+          `Extra cameras are <b>$2/camera/month</b> — subscribe at ` +
+          `<a href="https://argus-videowall.web.app/#pricing" target="_blank" rel="noopener">argus-videowall.web.app</a>, ` +
+          `then paste your license key below. Or remove ${data.requested - data.limit} camera(s) and save again.`
+      );
+      return;
+    }
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     // Re-render with backend-assigned ids so Test buttons light up.
@@ -105,6 +115,58 @@ function escapeHtml(s) {
 
 document.getElementById("add-row").addEventListener("click", () => addRow());
 document.getElementById("save").addEventListener("click", save);
+
+// ── License ──────────────────────────────────────────────────────────────────
+// 2 cameras are free; a subscription key ($2/camera/month) raises the limit.
+// Keys verify offline on the box — no cloud involved.
+const licStatusEl = document.getElementById("license-status");
+const licKeyEl = document.getElementById("license-key");
+const licNoteEl = document.getElementById("license-note");
+
+function renderLicense(lic) {
+  const buy = `<a href="https://argus-videowall.web.app/#pricing" target="_blank" rel="noopener">get more cameras — $2/camera/month</a>`;
+  if (lic.licensed) {
+    licStatusEl.innerHTML =
+      `✅ Licensed to <b>${escapeHtml(lic.email || "you")}</b> — up to <b>${lic.cams}</b> cameras until <b>${escapeHtml(lic.until)}</b>. ` +
+      `Renewals email you a fresh key; paste it below any time.`;
+  } else if (lic.expired) {
+    licStatusEl.innerHTML =
+      `⚠ Your license expired on <b>${escapeHtml(lic.until)}</b> — back to the ${lic.free} free cameras. ` +
+      `Renew the subscription and paste the new key below (${buy}).`;
+  } else {
+    licStatusEl.innerHTML =
+      `<b>${lic.free}</b> cameras are included free, forever. Need more? ${buy}, then paste the key you receive below.` +
+      (lic.error ? `<br>⚠ ${escapeHtml(lic.error)}` : "");
+  }
+}
+
+async function loadLicense() {
+  try {
+    const res = await fetch(`${ARGUS.backendBase()}/api/license`, { cache: "no-store" });
+    if (res.ok) renderLicense(await res.json());
+  } catch { /* backend gone — the gate handles that */ }
+}
+
+document.getElementById("license-apply").addEventListener("click", async () => {
+  const key = licKeyEl.value.trim();
+  if (!key) { licNoteEl.textContent = "Paste a key first."; return; }
+  licNoteEl.textContent = "Checking…";
+  try {
+    const res = await fetch(`${ARGUS.backendBase()}/api/license`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    licNoteEl.textContent = "";
+    licKeyEl.value = "";
+    renderLicense(data);
+    banner("ok", `License activated — up to ${data.cams} cameras until ${escapeHtml(data.until)}.`);
+  } catch (err) {
+    licNoteEl.textContent = err.message;
+  }
+});
 
 // ── Backend connection: manual entry + network detection ─────────────────────
 const backendInput = document.getElementById("backend-url");
@@ -234,6 +296,7 @@ function showEditor(list) {
   connEl.hidden = false;
   connEl.innerHTML = `<span class="dot live"></span> Connected to <code>${escapeHtml(ARGUS.backendBase())}</code> — use <strong>⚙ Backend</strong> to change.`;
   render(list);
+  loadLicense();
 }
 
 async function connect() {

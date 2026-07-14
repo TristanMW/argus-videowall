@@ -10,6 +10,9 @@ const http = require("http");
 const fsp = require("fs/promises");
 const fs = require("fs");
 const path = require("path");
+// "licensing" not "license": require("./license") would resolve to the LICENSE
+// text file on case-insensitive filesystems (macOS/Windows) and crash.
+const license = require("./licensing");
 
 const VERSION = "1.0.0";
 const PORT = Number(process.env.PORT || 8080);
@@ -180,16 +183,27 @@ async function waitForGo2rtc(tries = 15) {
   return false;
 }
 
+// Cameras the current license allows to stream (first N of the saved list).
+// Anything beyond the limit stays saved but is not registered with the engine.
+function licensedSlice(list) {
+  const { limit } = license.getStatus(DATA_FILE);
+  return list.slice(0, limit);
+}
+
 // On boot go2rtc may not be up yet — wait, enable WebRTC, then sync cameras.
 async function initialSync() {
   const list = await loadCameras();
+  const active = licensedSlice(list);
+  if (active.length < list.length) {
+    console.warn(`[argus] license allows ${active.length} of ${list.length} saved camera(s) — the rest won't stream (renew or trim the list)`);
+  }
   if (!(await waitForGo2rtc())) {
     console.warn("[argus] go2rtc not reachable at boot; will sync on next save");
     return;
   }
   if (await ensureWebrtcCandidate()) await waitForGo2rtc();
-  const errors = await syncGo2rtc(list);
-  console.log(`[argus] synced ${list.length} camera(s) to go2rtc` + (errors.length ? ` (${errors.length} warning(s))` : ""));
+  const errors = await syncGo2rtc(active);
+  console.log(`[argus] synced ${active.length} camera(s) to go2rtc` + (errors.length ? ` (${errors.length} warning(s))` : ""));
 }
 
 // ── HTTP helpers ─────────────────────────────────────────────────────────────
@@ -238,7 +252,7 @@ const server = http.createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOW_ORIGIN);
   res.setHeader("Vary", "Origin");
   if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Access-Control-Max-Age", "86400");
     res.writeHead(204).end();
@@ -258,9 +272,41 @@ const server = http.createServer(async (req, res) => {
         return json(res, 400, { error: "invalid JSON" });
       }
       const list = normalize(parsed);
+      // Licensing: the first `limit` cameras are included; more needs a key
+      // ($2/camera/month). 402 Payment Required, with everything the config
+      // page needs to explain the situation.
+      const lic = license.getStatus(DATA_FILE);
+      if (list.length > lic.limit) {
+        return json(res, 402, {
+          error: "license_limit",
+          limit: lic.limit,
+          requested: list.length,
+          license: lic,
+        });
+      }
       await saveCameras(list);
       const errors = await syncGo2rtc(list);
       return json(res, 200, { ok: errors.length === 0, cameras: list, warnings: errors });
+    }
+
+    // License status / activation. The key is verified offline (Ed25519) —
+    // no cloud round-trip, nothing about the cameras leaves the box.
+    if (pathname === "/api/license" && req.method === "GET") {
+      return json(res, 200, license.getStatus(DATA_FILE));
+    }
+    if (pathname === "/api/license" && req.method === "PUT") {
+      let body;
+      try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+      try {
+        const status = await license.setKey(DATA_FILE, body.key);
+        await initialSync().catch(() => {});
+        return json(res, 200, status);
+      } catch (e) {
+        return json(res, 400, { error: String(e.message || e) });
+      }
+    }
+    if (pathname === "/api/license" && req.method === "DELETE") {
+      return json(res, 200, await license.clearKey(DATA_FILE));
     }
 
     // Lightweight identity endpoint used by the config page's "Detect backend"
