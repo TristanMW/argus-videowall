@@ -33,3 +33,5 @@ firebase-debug.log
 firebase.json
 .firebaserc
 deploy-hosting.sh
+setup.log
+logs/

@@ -68,7 +68,7 @@ if ($all -notmatch "^[nN]") {
 
 # Keep the app files, remove everything the app created at runtime.
 Info "Keeping the app files; removing runtime data..."
-Remove-Item -Recurse -Force "logs", "data", ".env" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "logs", "data", ".env", "setup.log" -ErrorAction SilentlyContinue
 Remove-Item -Force "go2rtc\go2rtc.exe" -ErrorAction SilentlyContinue
 Info "Done. Argus no longer starts at boot and all runtime data is removed."
 Read-Host "Press Enter to close"

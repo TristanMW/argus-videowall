@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argus — self-hosted RTSP video wall. Every camera, one screen, zero cloud.</title>
+<meta name="description" content="Argus is a free, open-source, view-only video wall for RTSP cameras. Sub-second WebRTC video, browser-managed cameras, two-way intercom talk — everything runs on your own machine. No cloud, no accounts, no recording.">
+<meta property="og:title" content="Argus — self-hosted RTSP video wall">
+<meta property="og:description" content="Every RTSP camera on one screen, ~0.2s latency, 100% local. Free and open source.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://argus-videowall.web.app/icons/icon-512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  :root {
+    --bg-app: #0B0E14;
+    --bg-panel: #131720;
+    --bg-elevated: #1B212E;
+    --bg-inset: #080A0F;
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-default: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.16);
+    --text-primary: #E9EDF5;
+    --text-secondary: #A6B0C3;
+    --text-muted: #6C7688;
+    --text-on-accent: #04121F;
+    --accent: #2E9BFF;
+    --accent-hover: #4FADFF;
+    --accent-soft: rgba(46,155,255,0.14);
+    --live: #24D07A; --live-soft: rgba(36,208,122,0.16);
+    --warn: #F5A524;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --r-md: 8px; --r-lg: 12px; --r-xl: 18px; --r-full: 999px;
+    --elev-2: 0 4px 12px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.04) inset;
+    --elev-3: 0 12px 32px rgba(0,0,0,0.55);
+    --maxw: 1120px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+  code, pre { font-family: var(--font-mono); font-size: 0.86em; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+  section { padding: 88px 0; }
+  h2 { font-size: clamp(26px, 3.4vw, 36px); line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 12px; }
+  .kicker {
+    display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 14px;
+  }
+  .lede { color: var(--text-secondary); font-size: 17px; max-width: 720px; }
+
+  /* ── Nav ─────────────────────────────────────────────────────────── */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(11,14,20,0.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .nav-inner { display: flex; align-items: center; gap: 28px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; color: var(--text-primary); }
+  .brand img { width: 26px; height: 26px; border-radius: 6px; }
+  .nav-links { display: flex; gap: 22px; margin-left: auto; }
+  .nav-links a { color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+  .nav-links a:hover { color: var(--text-primary); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
+    border-radius: var(--r-md); font-size: 14.5px; font-weight: 600; cursor: pointer;
+    border: 1px solid transparent; transition: all 150ms cubic-bezier(0.2,0,0,1);
+  }
+  .btn-primary { background: var(--accent); color: var(--text-on-accent) !important; }
+  .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .btn-ghost { border-color: var(--border-strong); color: var(--text-primary) !important; }
+  .btn-ghost:hover { background: var(--bg-elevated); }
+  .btn-sm { padding: 7px 14px; font-size: 13.5px; }
+
+  /* ── Hero ────────────────────────────────────────────────────────── */
+  .hero { padding: 96px 0 72px; position: relative; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: -40% -20% auto; height: 130%;
+    background:
+      radial-gradient(600px 340px at 22% 30%, rgba(46,155,255,0.13), transparent 70%),
+      radial-gradient(520px 300px at 78% 12%, rgba(36,208,122,0.07), transparent 70%);
+    pointer-events: none;
+  }
+  .hero .wrap { position: relative; }
+  .hero h1 { font-size: clamp(34px, 5.2vw, 58px); line-height: 1.08; letter-spacing: -0.025em; max-width: 780px; }
+  .hero h1 .hl { color: var(--accent); }
+  .hero .lede { margin: 22px 0 30px; font-size: 18.5px; }
+  .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .hero-note { font-size: 13px; color: var(--text-muted); margin-top: 14px; }
+  .hero-visual {
+    margin-top: 64px; border-radius: var(--r-xl); overflow: hidden;
+    border: 1px solid var(--border-default); box-shadow: var(--elev-3);
+    background: var(--bg-inset);
+  }
+  .hero-visual svg { display: block; width: 100%; height: auto; }
+
+  /* ── Stats strip ─────────────────────────────────────────────────── */
+  .stats { border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); padding: 34px 0; background: var(--bg-panel); }
+  .stats .wrap { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  .stat b { display: block; font-size: 26px; letter-spacing: -0.02em; }
+  .stat span { font-size: 13.5px; color: var(--text-muted); }
+
+  /* ── Feature grid ────────────────────────────────────────────────── */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: 18px; margin-top: 42px; }
+  .card {
+    background: var(--bg-panel); border: 1px solid var(--border-subtle);
+    border-radius: var(--r-lg); padding: 24px 22px;
+  }
+  .card .ico {
+    width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
+  }
+  .card h3 { font-size: 16.5px; margin-bottom: 7px; letter-spacing: -0.01em; }
+  .card p { font-size: 14.5px; color: var(--text-secondary); }
+
+  /* ── Shots ───────────────────────────────────────────────────────── */
+  .shot-row { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 42px; align-items: start; }
+  .shot { background: var(--bg-inset); border: 1px solid var(--border-default); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--elev-2); }
+  .shot svg { display: block; width: 100%; height: auto; }
+  .shot-cap { padding: 14px 18px; font-size: 13.5px; color: var(--text-muted); border-top: 1px solid var(--border-subtle); background: var(--bg-panel); }
+
+  /* ── Steps / architecture ────────────────────────────────────────── */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 42px 0 50px; }
+  .step { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); padding: 24px 22px; }
+  .step .num {
+    width: 30px; height: 30px; border-radius: var(--r-full); background: var(--accent);
+    color: var(--text-on-accent); font-weight: 800; font-size: 15px;
+    display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
+  }
+  .step h3 { font-size: 16px; margin-bottom: 6px; }
+  .step p { font-size: 14.5px; color: var(--text-secondary); }
+  .arch { background: var(--bg-inset); border: 1px solid var(--border-default); border-radius: var(--r-lg); overflow: hidden; }
+  .arch svg { display: block; width: 100%; height: auto; }
+
+  /* ── Install ─────────────────────────────────────────────────────── */
+  .install-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 42px; }
+  .install-card { background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--r-lg); padding: 26px 24px; display: flex; flex-direction: column; }
+  .install-card.rec { border-color: rgba(46,155,255,0.45); position: relative; }
+  .pill {
+    position: absolute; top: -11px; left: 22px; background: var(--accent); color: var(--text-on-accent);
+    font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 3px 10px; border-radius: var(--r-full);
+  }
+  .install-card h3 { font-size: 18px; margin-bottom: 4px; }
+  .install-card .sub { font-size: 13.5px; color: var(--text-muted); margin-bottom: 16px; }
+  .install-card p { font-size: 14.5px; color: var(--text-secondary); margin-bottom: 12px; }
+  .install-card ul { margin: 0 0 16px 18px; font-size: 14.5px; color: var(--text-secondary); }
+  .install-card li { margin-bottom: 6px; }
+  pre {
+    background: var(--bg-inset); border: 1px solid var(--border-subtle); border-radius: var(--r-md);
+    padding: 13px 15px; overflow-x: auto; color: #BFE3FF; font-size: 13px; line-height: 1.55;
+    margin-top: auto;
+  }
+  pre .c { color: var(--text-muted); }
+
+  /* ── Security ────────────────────────────────────────────────────── */
+  .sec-cols { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; margin-top: 42px; align-items: start; }
+  .checklist { list-style: none; }
+  .checklist li { display: flex; gap: 12px; margin-bottom: 16px; font-size: 15px; color: var(--text-secondary); }
+  .checklist li b { color: var(--text-primary); }
+  .checklist .tick {
+    flex: none; width: 22px; height: 22px; margin-top: 2px; border-radius: var(--r-full);
+    background: var(--live-soft); color: var(--live); font-size: 13px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── FAQ ─────────────────────────────────────────────────────────── */
+  .faq { max-width: 780px; margin-top: 36px; }
+  details { border-bottom: 1px solid var(--border-subtle); padding: 20px 4px; }
+  summary { cursor: pointer; font-weight: 600; font-size: 16px; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--text-muted); font-size: 22px; font-weight: 400; flex: none; }
+  details[open] summary::after { content: "–"; }
+  details p { margin-top: 12px; color: var(--text-secondary); font-size: 15px; max-width: 700px; }
+
+  /* ── CTA + footer ────────────────────────────────────────────────── */
+  .cta { text-align: center; background: linear-gradient(180deg, var(--bg-panel), var(--bg-app)); border-top: 1px solid var(--border-subtle); }
+  .cta h2 { margin-bottom: 10px; }
+  .cta .hero-ctas { justify-content: center; margin-top: 28px; }
+  footer { border-top: 1px solid var(--border-subtle); padding: 34px 0; }
+  .foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--text-muted); font-size: 13.5px; }
+  .foot img { width: 20px; height: 20px; border-radius: 5px; }
+  .foot .sp { margin-left: auto; display: flex; gap: 18px; }
+
+  @media (max-width: 880px) {
+    section { padding: 64px 0; }
+    .nav-links { display: none; }
+    .stats .wrap { grid-template-columns: repeat(2, 1fr); }
+    .shot-row, .steps, .sec-cols { grid-template-columns: 1fr; }
+    .hero { padding: 64px 0 48px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top"><img src="icons/icon-192.png" alt="Argus logo">Argus</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#install">Install</a>
+      <a href="#security">Privacy</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="https://github.com/TristanMW/argus-videowall" rel="noopener">GitHub</a>
+    <a class="btn btn-primary btn-sm" href="#install">Get Argus</a>
+  </div>
+</nav>
+
+<!-- ══ Hero ═══════════════════════════════════════════════════════════ -->
+<header class="hero" id="top">
+  <div class="wrap">
+    <span class="kicker">Free &amp; open-source · Self-hosted</span>
+    <h1>Every camera. One wall.<br><span class="hl">Zero cloud.</span></h1>
+    <p class="lede">
+      Argus is a view-only video wall for RTSP cameras — Dahua, Hikvision, UniFi,
+      Amcrest, a Fanvil door intercom, anything that speaks RTSP. Sub-second WebRTC
+      video, cameras managed from the browser, two-way talk for the intercom.
+      Everything runs on a machine you own.
+    </p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="#install">⬇ Install on Windows</a>
+      <a class="btn btn-ghost" href="#how">See how it works</a>
+    </div>
+    <p class="hero-note">Also runs on macOS &amp; Linux · MIT licensed · No accounts, no subscription, no telemetry</p>
+
+    <!-- Video wall mock -->
+    <div class="hero-visual" role="img" aria-label="The Argus video wall: a 3-by-2 grid of live camera tiles with layout and mute controls">
+      <svg viewBox="0 0 1120 660" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
+        <defs>
+          <linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#2A3B5C"/><stop offset=".55" stop-color="#54484F"/><stop offset="1" stop-color="#1E2230"/>
+          </linearGradient>
+          <linearGradient id="day" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#6FA0C7"/><stop offset=".6" stop-color="#8FB3A6"/><stop offset="1" stop-color="#39543F"/>
+          </linearGradient>
+          <linearGradient id="wh" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#2E3644"/><stop offset="1" stop-color="#171C26"/>
+          </linearGradient>
+          <linearGradient id="ir" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#3A3F46"/><stop offset="1" stop-color="#121519"/>
+          </linearGradient>
+          <linearGradient id="office" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#3D3A50"/><stop offset="1" stop-color="#20202E"/>
+          </linearGradient>
+          <linearGradient id="door" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#4A4038"/><stop offset="1" stop-color="#211D1E"/>
+          </linearGradient>
+          <radialGradient id="vig" cx=".5" cy=".5" r=".75">
+            <stop offset=".62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".42"/>
+          </radialGradient>
+          <g id="live">
+            <rect width="52" height="20" rx="10" fill="rgba(8,10,15,0.72)"/>
+            <circle cx="12" cy="10" r="4" fill="#24D07A"/>
+            <text x="22" y="14" font-size="10.5" font-weight="700" fill="#E9EDF5">LIVE</text>
+          </g>
+          <g id="spk">
+            <rect width="26" height="26" rx="13" fill="rgba(8,10,15,0.72)"/>
+            <path d="M8 10.5h3l4-3.5v12l-4-3.5H8z" fill="#E9EDF5"/>
+            <path d="M17.5 9.5a4.5 4.5 0 010 7" stroke="#E9EDF5" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+          </g>
+        </defs>
+
+        <!-- browser chrome -->
+        <rect width="1120" height="660" fill="#080A0F"/>
+        <rect width="1120" height="46" fill="#131720"/>
+        <circle cx="26" cy="23" r="6" fill="#FF5F57"/><circle cx="48" cy="23" r="6" fill="#FEBC2E"/><circle cx="70" cy="23" r="6" fill="#28C840"/>
+        <rect x="330" y="11" width="460" height="24" rx="12" fill="#0B0E14" stroke="rgba(255,255,255,0.08)"/>
+        <text x="560" y="27" font-size="12" fill="#6C7688" text-anchor="middle">argus.local — video wall</text>
+
+        <!-- app toolbar -->
+        <rect x="0" y="46" width="1120" height="44" fill="#0E1219"/>
+        <circle cx="30" cy="68" r="11" fill="#2E9BFF"/>
+        <circle cx="30" cy="68" r="5" fill="#04121F"/>
+        <circle cx="31.8" cy="66.2" r="1.8" fill="#BFE3FF"/>
+        <text x="50" y="73" font-size="14.5" font-weight="700" fill="#E9EDF5">Argus</text>
+        <g font-size="11.5" font-weight="600">
+          <rect x="806" y="55" width="42" height="26" rx="6" fill="none" stroke="rgba(255,255,255,0.14)"/><text x="827" y="72" fill="#A6B0C3" text-anchor="middle">1×1</text>
+          <rect x="854" y="55" width="42" height="26" rx="6" fill="none" stroke="rgba(255,255,255,0.14)"/><text x="875" y="72" fill="#A6B0C3" text-anchor="middle">2×2</text>
+          <rect x="902" y="55" width="42" height="26" rx="6" fill="#2E9BFF"/><text x="923" y="72" fill="#04121F" text-anchor="middle">2×3</text>
+          <rect x="950" y="55" width="42" height="26" rx="6" fill="none" stroke="rgba(255,255,255,0.14)"/><text x="971" y="72" fill="#A6B0C3" text-anchor="middle">3×3</text>
+          <rect x="1004" y="55" width="46" height="26" rx="6" fill="none" stroke="rgba(255,255,255,0.14)"/><text x="1027" y="72" fill="#A6B0C3" text-anchor="middle">🔇</text>
+          <rect x="1056" y="55" width="46" height="26" rx="6" fill="none" stroke="rgba(255,255,255,0.14)"/><text x="1079" y="72" fill="#A6B0C3" text-anchor="middle">⛶</text>
+        </g>
+
+        <!-- tiles: 3 cols x 2 rows, tile 364x276, gap 8, origin (10,98) -->
+        <!-- Tile 1: Driveway (dusk) -->
+        <g transform="translate(10,98)">
+          <clipPath id="t1"><rect width="364" height="276" rx="8"/></clipPath>
+          <g clip-path="url(#t1)">
+            <rect width="364" height="276" fill="url(#dusk)"/>
+            <circle cx="300" cy="52" r="16" fill="#F5E0B8" opacity=".85"/>
+            <rect x="0" y="196" width="364" height="80" fill="#23283A"/>
+            <path d="M40 196 L120 120 L200 196 Z" fill="#1A1F30"/>
+            <rect x="88" y="150" width="22" height="18" fill="#F5CB6E" opacity=".9"/>
+            <rect x="130" y="158" width="18" height="38" fill="#141828"/>
+            <path d="M212 186 q10 -20 44 -20 q40 0 48 20 l6 12 h-104 z" fill="#0F1320"/>
+            <circle cx="234" cy="200" r="9" fill="#0A0D16"/><circle cx="288" cy="200" r="9" fill="#0A0D16"/>
+            <rect x="0" y="216" width="364" height="8" fill="#2C3247" opacity=".6"/>
+            <rect width="364" height="276" fill="url(#vig)"/>
+          </g>
+          <use href="#live" x="10" y="10"/>
+          <text x="352" y="24" font-size="10.5" fill="rgba(233,237,245,0.75)" text-anchor="end" font-family="ui-monospace,Menlo,monospace">18:42:07</text>
+          <rect x="10" y="244" width="86" height="22" rx="6" fill="rgba(8,10,15,0.72)"/>
+          <text x="20" y="259" font-size="11.5" font-weight="600" fill="#E9EDF5">Driveway</text>
+          <use href="#spk" x="326" y="240"/>
+          <rect width="364" height="276" rx="8" fill="none" stroke="rgba(255,255,255,0.07)"/>
+        </g>
+
+        <!-- Tile 2: Front door intercom (talk) -->
+        <g transform="translate(382,98)">
+          <clipPath id="t2"><rect width="364" height="276" rx="8"/></clipPath>
+          <g clip-path="url(#t2)">
+            <rect width="364" height="276" fill="url(#door)"/>
+            <rect x="132" y="60" width="100" height="216" rx="4" fill="#5C4A3A"/>
+            <rect x="142" y="72" width="80" height="90" rx="3" fill="#6B5844"/>
+            <circle cx="216" cy="180" r="5" fill="#D8B26A"/>
+            <rect x="60" y="236" width="304" height="40" fill="#2A2423"/>
+            <circle cx="86" cy="120" r="20" fill="#3E3630"/>
+            <path d="M66 178 q20 -26 40 0 v58 h-40 z" fill="#33302E"/>
+            <circle cx="86" cy="150" r="13" fill="#C99B78"/>
+            <rect width="364" height="276" fill="url(#vig)"/>
+          </g>
+          <use href="#live" x="10" y="10"/>
+          <text x="352" y="24" font-size="10.5" fill="rgba(233,237,245,0.75)" text-anchor="end" font-family="ui-monospace,Menlo,monospace">18:42:07</text>
+          <rect x="10" y="244" width="150" height="22" rx="6" fill="rgba(8,10,15,0.72)"/>
+          <text x="20" y="259" font-size="11.5" font-weight="600" fill="#E9EDF5">Front door — talk</text>
+          <g transform="translate(292,240)">
+            <rect width="60" height="26" rx="13" fill="#2E9BFF"/>
+            <text x="30" y="17.5" font-size="11" font-weight="700" fill="#04121F" text-anchor="middle">🎙 Talk</text>
+          </g>
+          <rect width="364" height="276" rx="8" fill="none" stroke="rgba(46,155,255,0.55)"/>
+        </g>
+
+        <!-- Tile 3: Warehouse -->
+        <g transform="translate(754,98)">
+          <clipPath id="t3"><rect width="364" height="276" rx="8"/></clipPath>
+          <g clip-path="url(#t3)">
+            <rect width="364" height="276" fill="url(#wh)"/>
+            <path d="M0 70 L182 20 L364 70" stroke="#3C4658" stroke-width="5" fill="none"/>
+            <rect x="30" y="96" width="80" height="180" fill="#242C3B"/><rect x="30" y="130" width="80" height="6" fill="#39445A"/><rect x="30" y="180" width="80" height="6" fill="#39445A"/><rect x="30" y="230" width="80" height="6" fill="#39445A"/>
+            <rect x="254" y="96" width="80" height="180" fill="#242C3B"/><rect x="254" y="130" width="80" height="6" fill="#39445A"/><rect x="254" y="180" width="80" height="6" fill="#39445A"/><rect x="254" y="230" width="80" height="6" fill="#39445A"/>
+            <rect x="44" y="104" width="22" height="22" fill="#8A6B3E"/><rect x="72" y="104" width="22" height="22" fill="#7A5F38"/>
+            <rect x="268" y="152" width="22" height="22" fill="#8A6B3E"/><rect x="296" y="204" width="22" height="22" fill="#7A5F38"/>
+            <path d="M120 276 L182 96 L244 276 Z" fill="#171D28"/>
+            <ellipse cx="182" cy="60" rx="34" ry="10" fill="#EDE6C8" opacity=".14"/>
+            <rect width="364" height="276" fill="url(#vig)"/>
+          </g>
+          <use href="#live" x="10" y="10"/>
+          <text x="352" y="24" font-size="10.5" fill="rgba(233,237,245,0.75)" text-anchor="end" font-family="ui-monospace,Menlo,monospace">18:42:07</text>
+          <rect x="10" y="244" width="96" height="22" rx="6" fill="rgba(8,10,15,0.72)"/>
+          <text x="20" y="259" font-size="11.5" font-weight="600" fill="#E9EDF5">Warehouse</text>
+          <use href="#spk" x="326" y="240"/>
+          <rect width="364" height="276" rx="8" fill="none" stroke="rgba(255,255,255,0.07)"/>
+        </g>
+
+        <!-- Tile 4: Garden (day) -->
+        <g transform="translate(10,382)">
+          <clipPath id="t4"><rect width="364" height="276" rx="8"/></clipPath>
+          <g clip-path="url(#t4)">
+            <rect width="364" height="276" fill="url(#day)"/>
+            <circle cx="60" cy="46" r="20" fill="#FCF3D4" opacity=".9"/>
+            <ellipse cx="120" cy="60" rx="42" ry="13" fill="#FFFFFF" opacity=".35"/>
+            <ellipse cx="260" cy="42" rx="52" ry="14" fill="#FFFFFF" opacity=".28"/>
+            <rect x="0" y="190" width="364" height="86" fill="#2F4A33"/>
+            <path d="M150 276 q30 -60 8 -86 q40 20 52 86 z" fill="#C8BFA5"/>
+            <circle cx="70" cy="170" r="34" fill="#2A4A2E"/><rect x="65" y="196" width="10" height="42" fill="#4A3A28"/>
+            <circle cx="308" cy="158" r="42" fill="#28422C"/><rect x="302" y="192" width="11" height="52" fill="#4A3A28"/>
+            <rect width="364" height="276" fill="url(#vig)"/>
+          </g>
+          <use href="#live" x="10" y="10"/>
+          <text x="352" y="24" font-size="10.5" fill="rgba(233,237,245,0.75)" text-anchor="end" font-family="ui-monospace,Menlo,monospace">18:42:07</text>
+          <rect x="10" y="244" width="70" height="22" rx="6" fill="rgba(8,10,15,0.72)"/>
+          <text x="20" y="259" font-size="11.5" font-weight="600" fill="#E9EDF5">Garden</text>
+          <use href="#spk" x="326" y="240"/>
+          <rect width="364" height="276" rx="8" fill="none" stroke="rgba(255,255,255,0.07)"/>
+        </g>
+
+        <!-- Tile 5: Gate (night IR) -->
+        <g transform="translate(382,382)">
+          <clipPath id="t5"><rect width="364" height="276" rx="8"/></clipPath>
+          <g clip-path="url(#t5)">
+            <rect width="364" height="276" fill="url(#ir)"/>
+            <circle cx="312" cy="44" r="13" fill="#E8E8E8" opacity=".8"/>
+            <rect x="0" y="206" width="364" height="70" fill="#1B1E23"/>
+            <g stroke="#6E747D" stroke-width="6">
+              <line x1="60" y1="100" x2="60" y2="206"/><line x1="110" y1="100" x2="110" y2="206"/>
+              <line x1="160" y1="100" x2="160" y2="206"/><line x1="210" y1="100" x2="210" y2="206"/>
+              <line x1="260" y1="100" x2="260" y2="206"/><line x1="310" y1="100" x2="310" y2="206"/>
+            </g>
+            <rect x="36" y="92" width="298" height="10" fill="#82878F"/>
+            <rect x="36" y="198" width="298" height="10" fill="#82878F"/>
+            <rect x="20" y="70" width="18" height="140" fill="#4A4E55"/><rect x="330" y="70" width="18" height="140" fill="#4A4E55"/>
+            <rect width="364" height="276" fill="url(#vig)"/>
+            <text x="12" y="270" font-size="9" fill="rgba(255,255,255,0.35)" font-family="ui-monospace,Menlo,monospace">IR</text>
+          </g>
+          <use href="#live" x="10" y="10"/>
+          <text x="352" y="24" font-size="10.5" fill="rgba(233,237,245,0.75)" text-anchor="end" font-family="ui-monospace,Menlo,monospace">18:42:07</text>
+          <rect x="10" y="244" width="54" height="22" rx="6" fill="rgba(8,10,15,0.72)"/>
+          <text x="20" y="259" font-size="11.5" font-weight="600" fill="#E9EDF5">Gate</text>
+          <use href="#spk" x="326" y="240"/>
+          <rect width="364" height="276" rx="8" fill="none" stroke="rgba(255,255,255,0.07)"/>
+        </g>
+
+        <!-- Tile 6: Office -->
+        <g transform="translate(754,382)">
+          <clipPath id="t6"><rect width="364" height="276" rx="8"/></clipPath>
+          <g clip-path="url(#t6)">
+            <rect width="364" height="276" fill="url(#office)"/>
+            <rect x="40" y="50" width="120" height="86" rx="4" fill="#5A6C8C" opacity=".85"/>
+            <rect x="48" y="58" width="104" height="70" fill="#7E92B5" opacity=".5"/>
+            <rect x="0" y="200" width="364" height="76" fill="#262433"/>
+            <rect x="200" y="150" width="130" height="52" rx="4" fill="#3A3548"/>
+            <rect x="222" y="112" width="56" height="38" rx="3" fill="#151824"/>
+            <rect x="226" y="116" width="48" height="30" fill="#2E9BFF" opacity=".35"/>
+            <circle cx="330" cy="140" r="14" fill="#2E4A34"/><rect x="326" y="150" width="8" height="22" fill="#4A3A28"/><rect x="318" y="168" width="24" height="14" rx="2" fill="#6E4F35"/>
+            <rect width="364" height="276" fill="url(#vig)"/>
+          </g>
+          <use href="#live" x="10" y="10"/>
+          <text x="352" y="24" font-size="10.5" fill="rgba(233,237,245,0.75)" text-anchor="end" font-family="ui-monospace,Menlo,monospace">18:42:07</text>
+          <rect x="10" y="244" width="62" height="22" rx="6" fill="rgba(8,10,15,0.72)"/>
+          <text x="20" y="259" font-size="11.5" font-weight="600" fill="#E9EDF5">Office</text>
+          <use href="#spk" x="326" y="240"/>
+          <rect width="364" height="276" rx="8" fill="none" stroke="rgba(255,255,255,0.07)"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</header>
+
+<!-- ══ Stats ═════════════════════════════════════════════════════════ -->
+<div class="stats">
+  <div class="wrap">
+    <div class="stat"><b>~0.2 s</b><span>glass-to-glass latency over WebRTC</span></div>
+    <div class="stat"><b>100 %</b><span>local — video never touches a cloud</span></div>
+    <div class="stat"><b>0</b><span>accounts, subscriptions &amp; telemetry</span></div>
+    <div class="stat"><b>Any</b><span>RTSP device — cameras &amp; intercoms</span></div>
+  </div>
+</div>
+
+<!-- ══ Features ══════════════════════════════════════════════════════ -->
+<section id="features">
+  <div class="wrap">
+    <span class="kicker">Features</span>
+    <h2>A serious wall, without the NVR baggage</h2>
+    <p class="lede">
+      Argus was built to fix a real gap: vendor NVR software won't put arbitrary RTSP
+      devices — like a door intercom — on the same screen as your cameras. Argus puts
+      anything with an RTSP URL on one low-latency grid, and stays deliberately simple:
+      live monitoring only.
+    </p>
+    <div class="grid">
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1.5" fill="#2E9BFF"/><rect x="11" y="2" width="7" height="7" rx="1.5" fill="#2E9BFF" opacity=".55"/><rect x="2" y="11" width="7" height="7" rx="1.5" fill="#2E9BFF" opacity=".55"/><rect x="11" y="11" width="7" height="7" rx="1.5" fill="#2E9BFF"/></svg></div>
+        <h3>Managed from the browser</h3>
+        <p>Add, edit and remove cameras on a config page. Changes apply <em>live</em> — no restarts, no YAML, no file editing.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M11 1 L4 11h5l-1 7 8-11h-5z" fill="#2E9BFF"/></svg></div>
+        <h3>Sub-second video</h3>
+        <p>WebRTC streaming with no transcoding: ~0.2&nbsp;s latency and tiny CPU use, with an automatic MSE fallback.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 20 20"><rect x="3" y="6" width="9" height="8" rx="2" fill="#2E9BFF"/><path d="M13 9l4-2.5v7L13 11z" fill="#2E9BFF" opacity=".6"/></svg></div>
+        <h3>Any RTSP source</h3>
+        <p>Dahua, Hikvision, UniFi, Amcrest, Reolink, Axis — and non-cameras like a Fanvil door intercom. If it has an RTSP URL, it's a tile.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 20 20"><rect x="7" y="2" width="6" height="10" rx="3" fill="#2E9BFF"/><path d="M4 10a6 6 0 0012 0M10 16v3" stroke="#2E9BFF" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <h3>Two-way talk</h3>
+        <p>Answer the door from the wall: push-to-talk sends your microphone to intercoms that support back-channel audio.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M3 8h3l4-4v12l-4-4H3z" fill="#2E9BFF"/><path d="M13.5 6.5a5 5 0 010 7" stroke="#2E9BFF" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <h3>Audio, per tile</h3>
+        <p>Listen on any camera with one click, mute everything at once, and go fullscreen per tile or for the whole wall.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 20 20"><rect x="3" y="2" width="14" height="16" rx="3" fill="none" stroke="#2E9BFF" stroke-width="1.8"/><path d="M10 6v5l3 2" stroke="#2E9BFF" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <h3>Installs as an app</h3>
+        <p>A real PWA: install it from the browser, launch it like a native app, and the shell even opens offline.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="3" fill="#2E9BFF"/><path d="M10 3a7 7 0 017 7M10 17a7 7 0 01-7-7" stroke="#2E9BFF" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <h3>Finds itself on the LAN</h3>
+        <p>The box advertises <code>argus.local</code> via mDNS; other devices attach with one click on “Detect on network”.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 10a6 6 0 0110.5-4M16 10A6 6 0 015.5 14" stroke="#2E9BFF" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M14.5 2v4h-4M5.5 18v-4h4" stroke="#2E9BFF" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>Self-healing</h3>
+        <p>Streams reconnect automatically; on Windows a silent boot task supervises the engine and restarts it if anything dies.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ Screens ═══════════════════════════════════════════════════════ -->
+<section id="screens" style="padding-top:0">
+  <div class="wrap">
+    <span class="kicker">The two screens</span>
+    <h2>A wall you watch. A page you configure.</h2>
+    <p class="lede">That's the whole app. The wall shows your cameras; the config page manages them. Nothing else to learn.</p>
+    <div class="shot-row">
+      <div>
+        <div class="shot" role="img" aria-label="Mockup of the camera configuration page">
+          <svg viewBox="0 0 560 400" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
+            <rect width="560" height="400" fill="#0B0E14"/>
+            <rect width="560" height="40" fill="#131720"/>
+            <circle cx="22" cy="20" r="9" fill="#2E9BFF"/><circle cx="22" cy="20" r="4" fill="#04121F"/>
+            <text x="40" y="25" font-size="13" font-weight="700" fill="#E9EDF5">Cameras</text>
+            <rect x="446" y="10" width="100" height="22" rx="6" fill="rgba(46,155,255,0.14)"/>
+            <text x="496" y="25" font-size="10.5" font-weight="600" fill="#4FADFF" text-anchor="middle">⌖ Detect on network</text>
+
+            <rect x="16" y="56" width="528" height="30" rx="6" fill="rgba(36,208,122,0.14)"/>
+            <text x="30" y="75" font-size="11.5" fill="#24D07A">✓ Applied — 6 cameras live on the wall</text>
+
+            <g font-size="11.5">
+              <rect x="16" y="100" width="528" height="44" rx="8" fill="#131720" stroke="rgba(255,255,255,0.06)"/>
+              <text x="30" y="120" fill="#E9EDF5" font-weight="600">Driveway</text>
+              <text x="30" y="136" fill="#6C7688" font-family="ui-monospace,Menlo,monospace" font-size="9.5">rtsp://192.168.1.64:554/cam/realmonitor?channel=1…</text>
+              <rect x="418" y="111" width="44" height="22" rx="11" fill="rgba(46,155,255,0.14)"/><text x="440" y="126" fill="#4FADFF" text-anchor="middle" font-size="9.5">audio</text>
+              <rect x="470" y="111" width="58" height="22" rx="6" fill="none" stroke="rgba(255,255,255,0.14)"/><text x="499" y="126" fill="#A6B0C3" text-anchor="middle" font-size="10">Test ▶</text>
+
+              <rect x="16" y="152" width="528" height="44" rx="8" fill="#131720" stroke="rgba(46,155,255,0.4)"/>
+              <text x="30" y="172" fill="#E9EDF5" font-weight="600">Front door — intercom</text>
+              <text x="30" y="188" fill="#6C7688" font-family="ui-monospace,Menlo,monospace" font-size="9.5">rtsp://192.168.1.90/live/av0</text>
+              <rect x="360" y="163" width="44" height="22" rx="11" fill="rgba(46,155,255,0.14)"/><text x="382" y="178" fill="#4FADFF" text-anchor="middle" font-size="9.5">audio</text>
+              <rect x="410" y="163" width="52" height="22" rx="11" fill="rgba(36,208,122,0.16)"/><text x="436" y="178" fill="#24D07A" text-anchor="middle" font-size="9.5">🎙 talk</text>
+              <rect x="470" y="163" width="58" height="22" rx="6" fill="none" stroke="rgba(255,255,255,0.14)"/><text x="499" y="178" fill="#A6B0C3" text-anchor="middle" font-size="10">Test ▶</text>
+
+              <rect x="16" y="204" width="528" height="44" rx="8" fill="#131720" stroke="rgba(255,255,255,0.06)"/>
+              <text x="30" y="224" fill="#E9EDF5" font-weight="600">Warehouse</text>
+              <text x="30" y="240" fill="#6C7688" font-family="ui-monospace,Menlo,monospace" font-size="9.5">rtsp://192.168.1.71:554/Streaming/Channels/102</text>
+              <rect x="470" y="215" width="58" height="22" rx="6" fill="none" stroke="rgba(255,255,255,0.14)"/><text x="499" y="230" fill="#A6B0C3" text-anchor="middle" font-size="10">Test ▶</text>
+
+              <rect x="16" y="256" width="528" height="44" rx="8" fill="#131720" stroke="rgba(255,255,255,0.06)"/>
+              <text x="30" y="276" fill="#E9EDF5" font-weight="600">Gate</text>
+              <text x="30" y="292" fill="#6C7688" font-family="ui-monospace,Menlo,monospace" font-size="9.5">rtsp://192.168.1.82:7447/openrtsp…</text>
+              <rect x="470" y="267" width="58" height="22" rx="6" fill="none" stroke="rgba(255,255,255,0.14)"/><text x="499" y="282" fill="#A6B0C3" text-anchor="middle" font-size="10">Test ▶</text>
+            </g>
+
+            <rect x="16" y="316" width="120" height="30" rx="7" fill="none" stroke="rgba(255,255,255,0.16)"/>
+            <text x="76" y="335" font-size="11.5" fill="#E9EDF5" text-anchor="middle">＋ Add camera</text>
+            <rect x="424" y="316" width="120" height="30" rx="7" fill="#2E9BFF"/>
+            <text x="484" y="335" font-size="11.5" font-weight="700" fill="#04121F" text-anchor="middle">Save &amp; apply</text>
+            <text x="16" y="378" font-size="10" fill="#6C7688">Changes go live in seconds — streams register with the engine at runtime.</text>
+          </svg>
+        </div>
+        <div class="shot-cap">The config page — add a camera by pasting its RTSP URL, flag audio / two-way talk, hit <b>Save &amp; apply</b>.</div>
+      </div>
+      <div>
+        <div class="shot" role="img" aria-label="Mockup of the wall in fullscreen with one tile enlarged">
+          <svg viewBox="0 0 560 400" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
+            <rect width="560" height="400" fill="#080A0F"/>
+            <clipPath id="fs"><rect x="12" y="12" width="536" height="330" rx="10"/></clipPath>
+            <g clip-path="url(#fs)">
+              <rect x="12" y="12" width="536" height="330" fill="url(#door2)"/>
+              <linearGradient id="door2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#4A4038"/><stop offset="1" stop-color="#211D1E"/>
+              </linearGradient>
+              <rect x="200" y="52" width="150" height="290" rx="5" fill="#5C4A3A"/>
+              <rect x="214" y="70" width="122" height="130" rx="4" fill="#6B5844"/>
+              <circle cx="326" cy="230" r="7" fill="#D8B26A"/>
+              <circle cx="120" cy="150" r="30" fill="#3E3630"/>
+              <path d="M90 235 q30 -38 60 0 v107 h-60 z" fill="#33302E"/>
+              <circle cx="120" cy="195" r="19" fill="#C99B78"/>
+              <radialGradient id="vig2" cx=".5" cy=".5" r=".75">
+                <stop offset=".62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/>
+              </radialGradient>
+              <rect x="12" y="12" width="536" height="330" fill="url(#vig2)"/>
+            </g>
+            <rect x="24" y="24" width="52" height="20" rx="10" fill="rgba(8,10,15,0.72)"/>
+            <circle cx="36" cy="34" r="4" fill="#24D07A"/>
+            <text x="46" y="38" font-size="10.5" font-weight="700" fill="#E9EDF5">LIVE</text>
+            <rect x="24" y="308" width="150" height="22" rx="6" fill="rgba(8,10,15,0.72)"/>
+            <text x="34" y="323" font-size="11.5" font-weight="600" fill="#E9EDF5">Front door — intercom</text>
+            <g transform="translate(206,352)">
+              <rect width="148" height="36" rx="18" fill="#2E9BFF"/>
+              <text x="74" y="23" font-size="13" font-weight="800" fill="#04121F" text-anchor="middle">🎙 Hold to talk</text>
+            </g>
+            <rect x="12" y="12" width="536" height="330" rx="10" fill="none" stroke="rgba(46,155,255,0.5)"/>
+          </svg>
+        </div>
+        <div class="shot-cap">Someone at the door? Click the intercom tile fullscreen and <b>hold to talk</b> — your voice plays at the door.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ How it works ══════════════════════════════════════════════════ -->
+<section id="how" style="background:var(--bg-panel); border-top:1px solid var(--border-subtle); border-bottom:1px solid var(--border-subtle)">
+  <div class="wrap">
+    <span class="kicker">How it works</span>
+    <h2>One small box does everything</h2>
+    <p class="lede">
+      Argus runs on any spare machine on your network — a desktop, a mini-PC, a NAS.
+      Two lightweight processes, no database, no GPU needed.
+    </p>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><h3>The engine pulls each camera once</h3><p>The battle-tested <a href="https://github.com/AlexxIT/go2rtc" rel="noopener">go2rtc</a> engine connects to every RTSP source a single time — your cameras never get hammered by multiple viewers.</p></div>
+      <div class="step"><div class="num">2</div><h3>Re-served as WebRTC, untouched</h3><p>Streams are repackaged (not transcoded) into WebRTC for every browser watching. That's why latency is ~0.2&nbsp;s and CPU use stays tiny.</p></div>
+      <div class="step"><div class="num">3</div><h3>A zero-dependency backend runs the show</h3><p>A small Node service serves the wall, owns the camera list and pushes changes into the engine live. Saved config survives reboots.</p></div>
+    </div>
+    <div class="arch" role="img" aria-label="Architecture: RTSP cameras flow into the Argus box (go2rtc engine plus Node backend), which serves WebRTC video to browsers, phones and TVs">
+      <svg viewBox="0 0 1080 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
+        <rect width="1080" height="300" fill="#0B0E14"/>
+        <!-- cameras -->
+        <g>
+          <text x="150" y="46" font-size="13" font-weight="700" fill="#A6B0C3" text-anchor="middle" letter-spacing="1">YOUR CAMERAS</text>
+          <g transform="translate(70,70)">
+            <rect width="160" height="44" rx="9" fill="#131720" stroke="rgba(255,255,255,0.1)"/>
+            <rect x="14" y="14" width="22" height="15" rx="3" fill="#2E9BFF"/><path d="M36 17l9-5v11l-9-5z" fill="#2E9BFF" opacity=".6"/>
+            <text x="56" y="29" font-size="12.5" fill="#E9EDF5">IP cameras</text>
+          </g>
+          <g transform="translate(70,126)">
+            <rect width="160" height="44" rx="9" fill="#131720" stroke="rgba(255,255,255,0.1)"/>
+            <rect x="16" y="11" width="14" height="22" rx="3" fill="#2E9BFF"/><circle cx="23" cy="18" r="3" fill="#04121F"/>
+            <text x="44" y="29" font-size="12.5" fill="#E9EDF5">Door intercom</text>
+          </g>
+          <g transform="translate(70,182)">
+            <rect width="160" height="44" rx="9" fill="#131720" stroke="rgba(255,255,255,0.1)"/>
+            <circle cx="26" cy="22" r="9" fill="none" stroke="#2E9BFF" stroke-width="2.5"/><circle cx="26" cy="22" r="3" fill="#2E9BFF"/>
+            <text x="44" y="27" font-size="12.5" fill="#E9EDF5">Anything RTSP</text>
+          </g>
+        </g>
+        <!-- arrows cams -> box -->
+        <g stroke="#3B475C" stroke-width="2" fill="none">
+          <path d="M232 92 C300 92 300 128 356 132"/>
+          <path d="M232 148 L356 148"/>
+          <path d="M232 204 C300 204 300 168 356 164"/>
+        </g>
+        <text x="294" y="130" font-size="10.5" fill="#6C7688" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">RTSP · pulled once</text>
+        <!-- the box -->
+        <g transform="translate(360,58)">
+          <rect width="330" height="188" rx="14" fill="#1B212E" stroke="rgba(46,155,255,0.4)"/>
+          <text x="165" y="32" font-size="13.5" font-weight="700" fill="#E9EDF5" text-anchor="middle">THE ARGUS BOX</text>
+          <text x="165" y="50" font-size="10.5" fill="#6C7688" text-anchor="middle">any PC, mini-PC or NAS on your LAN</text>
+          <rect x="24" y="66" width="282" height="44" rx="8" fill="#0B0E14" stroke="rgba(255,255,255,0.08)"/>
+          <text x="40" y="88" font-size="12" font-weight="600" fill="#E9EDF5">go2rtc engine</text>
+          <text x="40" y="102" font-size="10" fill="#6C7688">ingest · WebRTC/MSE · two-way audio</text>
+          <rect x="24" y="120" width="282" height="44" rx="8" fill="#0B0E14" stroke="rgba(255,255,255,0.08)"/>
+          <text x="40" y="142" font-size="12" font-weight="600" fill="#E9EDF5">Argus backend + UI</text>
+          <text x="40" y="156" font-size="10" fill="#6C7688">camera list · live config · argus.local discovery</text>
+        </g>
+        <!-- arrows box -> viewers -->
+        <g stroke="#2E9BFF" stroke-width="2.5" fill="none">
+          <path d="M694 118 C760 118 760 96 820 94"/>
+          <path d="M694 152 L820 150"/>
+          <path d="M694 186 C760 186 760 206 820 206"/>
+        </g>
+        <text x="757" y="136" font-size="10.5" fill="#4FADFF" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">WebRTC ~0.2s</text>
+        <!-- viewers -->
+        <g>
+          <text x="905" y="46" font-size="13" font-weight="700" fill="#A6B0C3" text-anchor="middle" letter-spacing="1">YOUR SCREENS</text>
+          <g transform="translate(824,72)">
+            <rect width="160" height="44" rx="9" fill="#131720" stroke="rgba(255,255,255,0.1)"/>
+            <rect x="14" y="12" width="26" height="17" rx="2" fill="none" stroke="#24D07A" stroke-width="2"/><line x1="20" y1="33" x2="34" y2="33" stroke="#24D07A" stroke-width="2"/>
+            <text x="52" y="29" font-size="12.5" fill="#E9EDF5">Any browser</text>
+          </g>
+          <g transform="translate(824,128)">
+            <rect width="160" height="44" rx="9" fill="#131720" stroke="rgba(255,255,255,0.1)"/>
+            <rect x="18" y="10" width="14" height="24" rx="3" fill="none" stroke="#24D07A" stroke-width="2"/>
+            <text x="44" y="29" font-size="12.5" fill="#E9EDF5">Phone / tablet</text>
+          </g>
+          <g transform="translate(824,184)">
+            <rect width="160" height="44" rx="9" fill="#131720" stroke="rgba(255,255,255,0.1)"/>
+            <rect x="12" y="12" width="30" height="18" rx="2" fill="none" stroke="#24D07A" stroke-width="2"/><line x1="22" y1="34" x2="32" y2="34" stroke="#24D07A" stroke-width="2"/>
+            <text x="52" y="29" font-size="12.5" fill="#E9EDF5">Wall-mounted TV</text>
+          </g>
+        </g>
+        <text x="540" y="282" font-size="11" fill="#6C7688" text-anchor="middle">Optional: private remote access over Tailscale HTTPS — nothing is ever exposed to the public internet.</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ══ Install ═══════════════════════════════════════════════════════ -->
+<section id="install">
+  <div class="wrap">
+    <span class="kicker">Install</span>
+    <h2>Running in about two minutes</h2>
+    <p class="lede">Grab the code from <a href="https://github.com/TristanMW/argus-videowall" rel="noopener">GitHub</a>, then pick your platform. Both paths are fully scripted.</p>
+    <div class="install-grid">
+      <div class="install-card rec">
+        <span class="pill">Recommended · Windows</span>
+        <h3>Windows — no Docker</h3>
+        <p class="sub">For client PCs and mini-PCs. No virtualization, no WSL2, no Docker licence.</p>
+        <ul>
+          <li>Installs Node.js and the streaming engine automatically</li>
+          <li>Opens the firewall for LAN viewing</li>
+          <li><b>Starts silently at every boot</b> — no login, no windows</li>
+          <li>Ships with a one-click, complete uninstaller</li>
+        </ul>
+        <pre><span class="c"># in the Argus folder — accept the admin prompt</span>
+setup-windows.bat
+
+<span class="c"># remove every trace later</span>
+uninstall-windows.bat</pre>
+      </div>
+      <div class="install-card">
+        <h3>Docker — any OS</h3>
+        <p class="sub">One command on anything that runs Docker: Windows, macOS, Linux, NAS.</p>
+        <ul>
+          <li>Two containers: the engine + the Argus backend</li>
+          <li>Camera list persists in a named volume</li>
+          <li>Installer scripts set Docker up if it's missing</li>
+        </ul>
+        <pre><span class="c"># Windows</span>
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+<span class="c"># macOS / Linux</span>
+./install.sh
+<span class="c"># or, with Docker already installed:</span>
+docker compose up -d --build</pre>
+      </div>
+      <div class="install-card">
+        <h3>Then: add cameras</h3>
+        <p class="sub">Everything else happens in the browser.</p>
+        <ul>
+          <li>Open <code>http://localhost:8080</code> on the box</li>
+          <li>Go to <b>Add cameras</b>, paste each RTSP URL, <b>Save &amp; apply</b></li>
+          <li>On other devices, open the wall and hit <b>Detect on network</b></li>
+          <li>Optionally install it as an app (PWA) and go fullscreen</li>
+        </ul>
+        <pre><span class="c"># typical camera URLs</span>
+rtsp://user:pass@192.168.1.64:554/…   <span class="c"># Dahua / Hikvision</span>
+rtsp://192.168.1.90/live/av0          <span class="c"># Fanvil intercom</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ Security ══════════════════════════════════════════════════════ -->
+<section id="security" style="background:var(--bg-panel); border-top:1px solid var(--border-subtle); border-bottom:1px solid var(--border-subtle)">
+  <div class="wrap">
+    <div class="sec-cols">
+      <div>
+        <span class="kicker">Privacy &amp; security</span>
+        <h2>Your cameras are nobody's business</h2>
+        <p class="lede" style="margin-bottom:28px">
+          Camera systems are exactly the thing you shouldn't hand to a cloud.
+          Argus is architected so there's nothing to trust: video, camera
+          config and processing never leave hardware you own.
+        </p>
+        <ul class="checklist">
+          <li><span class="tick">✓</span><span><b>100% local processing.</b> RTSP ingest, streaming and configuration all run on your box. No video frame ever leaves your network.</span></li>
+          <li><span class="tick">✓</span><span><b>No accounts, no telemetry, no third-party scripts.</b> The UI bundles zero CDNs, trackers or analytics — it only ever talks to your own box.</span></li>
+          <li><span class="tick">✓</span><span><b>No recording, by design.</b> Argus is a live monitor. There is no footage archive to leak, subpoena or fill a disk with.</span></li>
+          <li><span class="tick">✓</span><span><b>Private remote access done right.</b> Watch from anywhere over <a href="https://tailscale.com" rel="noopener">Tailscale</a> — a WireGuard-encrypted private mesh with valid HTTPS — instead of port-forwarding cameras to the internet.</span></li>
+          <li><span class="tick">✓</span><span><b>Open source, MIT licensed.</b> Every line is auditable. No binary blobs beyond the open-source go2rtc engine itself.</span></li>
+        </ul>
+      </div>
+      <div class="shot" role="img" aria-label="Diagram: your network stays private; remote viewers connect through an encrypted Tailscale tunnel">
+        <svg viewBox="0 0 520 430" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
+          <rect width="520" height="430" fill="#0B0E14"/>
+          <rect x="28" y="28" width="464" height="240" rx="14" fill="none" stroke="rgba(36,208,122,0.4)" stroke-dasharray="6 6"/>
+          <text x="48" y="56" font-size="12" font-weight="700" fill="#24D07A" letter-spacing="1">YOUR NETWORK</text>
+          <g transform="translate(60,84)">
+            <rect width="130" height="40" rx="8" fill="#131720" stroke="rgba(255,255,255,0.1)"/>
+            <text x="65" y="25" font-size="12" fill="#E9EDF5" text-anchor="middle">📹 Cameras</text>
+          </g>
+          <g transform="translate(60,150)">
+            <rect width="130" height="40" rx="8" fill="#131720" stroke="rgba(255,255,255,0.1)"/>
+            <text x="65" y="25" font-size="12" fill="#E9EDF5" text-anchor="middle">🚪 Intercom</text>
+          </g>
+          <g transform="translate(260,110)">
+            <rect width="180" height="60" rx="10" fill="#1B212E" stroke="rgba(46,155,255,0.45)"/>
+            <text x="90" y="27" font-size="13" font-weight="700" fill="#E9EDF5" text-anchor="middle">Argus box</text>
+            <text x="90" y="45" font-size="10" fill="#6C7688" text-anchor="middle">video stays here</text>
+          </g>
+          <g stroke="#3B475C" stroke-width="2">
+            <line x1="190" y1="104" x2="260" y2="128"/>
+            <line x1="190" y1="170" x2="260" y2="152"/>
+          </g>
+          <g transform="translate(260,206)">
+            <rect width="180" height="40" rx="8" fill="#131720" stroke="rgba(255,255,255,0.1)"/>
+            <text x="90" y="25" font-size="12" fill="#E9EDF5" text-anchor="middle">🖥 Wall on the LAN</text>
+          </g>
+          <line x1="350" y1="170" x2="350" y2="206" stroke="#2E9BFF" stroke-width="2.5"/>
+          <!-- tunnel -->
+          <path d="M350 268 L350 330" stroke="#24D07A" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round"/>
+          <rect x="262" y="286" width="176" height="26" rx="13" fill="rgba(36,208,122,0.16)"/>
+          <text x="350" y="303" font-size="11" font-weight="700" fill="#24D07A" text-anchor="middle">🔒 Tailscale · WireGuard</text>
+          <g transform="translate(260,340)">
+            <rect width="180" height="52" rx="10" fill="#131720" stroke="rgba(255,255,255,0.1)"/>
+            <text x="90" y="23" font-size="12" fill="#E9EDF5" text-anchor="middle">📱 You, anywhere</text>
+            <text x="90" y="40" font-size="10" fill="#6C7688" text-anchor="middle">only your signed-in devices</text>
+          </g>
+          <g transform="translate(48,340)">
+            <rect width="150" height="52" rx="10" fill="#131720" stroke="rgba(255,77,77,0.35)"/>
+            <text x="75" y="23" font-size="12" fill="#E9EDF5" text-anchor="middle">🌐 Public internet</text>
+            <text x="75" y="40" font-size="10" fill="#FF4D4D" text-anchor="middle">sees nothing — no open ports</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FAQ ═══════════════════════════════════════════════════════════ -->
+<section id="faq">
+  <div class="wrap">
+    <span class="kicker">FAQ</span>
+    <h2>Questions, answered</h2>
+    <div class="faq">
+      <details open>
+        <summary>Does Argus record footage?</summary>
+        <p>No — deliberately. Argus is a pure live wall: watch, listen, talk. If you need recording, motion detection or AI events, run a recorder like Frigate or your NVR alongside it; Argus happily displays the same cameras.</p>
+      </details>
+      <details>
+        <summary>Which cameras work?</summary>
+        <p>Anything that exposes an RTSP stream — which is nearly every IP camera made in the last decade: Dahua, Hikvision, UniFi Protect, Amcrest, Reolink, Axis, TP-Link and more, plus SIP/RTSP door intercoms like Fanvil. If VLC can open the URL, Argus can wall it.</p>
+      </details>
+      <details>
+        <summary>Do I need Docker?</summary>
+        <p>No. On Windows the recommended path is the native installer (<code>setup-windows.bat</code>) — no virtualization or WSL2 required, and it auto-starts silently at boot. Docker remains a one-command option on any OS if you prefer containers.</p>
+      </details>
+      <details>
+        <summary>Can I watch when I'm away from home?</summary>
+        <p>Yes — privately. Install Tailscale on the box and your phone, run the bundled serve script, and the wall is available over HTTPS to your devices only. Nothing is port-forwarded and nothing is reachable from the public internet.</p>
+      </details>
+      <details>
+        <summary>What hardware do I need?</summary>
+        <p>Very little. Because streams are repackaged rather than transcoded, a modest mini-PC or an old desktop handles a full 4×4 wall. No GPU needed. The viewing side is just a browser — a wall-mounted TV with a stick PC works great.</p>
+      </details>
+      <details>
+        <summary>What does it cost?</summary>
+        <p>Nothing. Argus is MIT-licensed open source. There is no cloud tier, no premium unlock and no subscription — it's yours to run, modify and redistribute.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CTA ═══════════════════════════════════════════════════════════ -->
+<section class="cta">
+  <div class="wrap">
+    <span class="kicker">Get started</span>
+    <h2>Put every camera on one screen tonight</h2>
+    <p class="lede" style="margin:0 auto">Free, open source, and yours — from download to live wall in about two minutes.</p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary" href="https://github.com/TristanMW/argus-videowall" rel="noopener">Get Argus on GitHub</a>
+      <a class="btn btn-ghost" href="#install">Installation guide</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <img src="icons/icon-192.png" alt="">
+    <span><b style="color:var(--text-primary)">Argus</b> — the hundred-eyed watchman. MIT © 2026 Tristan MW.</span>
+    <span class="sp">
+      <a href="https://github.com/TristanMW/argus-videowall" rel="noopener">GitHub</a>
+      <a href="https://github.com/AlexxIT/go2rtc" rel="noopener">go2rtc</a>
+      <a href="#top">Back to top ↑</a>
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>

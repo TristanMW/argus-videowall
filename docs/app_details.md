@@ -67,7 +67,8 @@ frontend owns layout, labels, grid switching, mute-all, and fullscreen.
 | `web/sw.js` / `web/manifest.webmanifest` / `web/icons/` | PWA service worker (caches the app shell), manifest, and icons — installable, offline shell. |
 | `web/styles.css` | Shared styling for wall + config page. |
 | `tailscale-serve.sh` / `tailscale-serve.ps1` | Exposes the UI (:443) and go2rtc (:8443) over HTTPS on your private tailnet for secure remote access + a padlocked PWA install (sh = Linux/macOS, ps1 = Windows). |
-| `firebase.json` / `.firebaserc` | Optional Firebase Hosting config for the static `web/` shell (project `argus-videowall`). Backend/video stay local. |
+| `firebase.json` / `.firebaserc` | Firebase Hosting config (project `argus-videowall`) — now serves `landing/`. Backend/video stay local. |
+| `landing/` | Public landing page at argus-videowall.web.app: self-contained dark-theme page (inline CSS + SVG product mockups, no external assets), reusing the app's design tokens. Includes a self-destructing `sw.js` to migrate browsers that had installed the old hosted app shell as a PWA. |
 | `deploy-hosting.sh` | Deploys `web/` to Firebase Hosting using a service-account key **by reference** (never copied/committed); refuses a key inside the repo. |
 | `.gitignore` / `.dockerignore` | Block service-account keys and other secrets from ever being committed or entering the image. |
 | `start-windows.bat` / `start-macos.sh` | Non-Docker manual run (needs Node + a downloaded go2rtc binary; visible windows). |
@@ -172,6 +173,26 @@ targeted probe rather than a full sweep.
   Access are the intended access-control layer if you go beyond the LAN.
 
 ## Changelog
+
+### 2026-07-14 (later)
+- **Landing page at argus-videowall.web.app.** Firebase Hosting now serves a new
+  `landing/` site instead of the app shell: hero with an SVG video-wall mockup,
+  stats, feature grid, config-page/talk mockups, how-it-works architecture
+  diagram, install cards (Windows no-Docker recommended path + Docker), privacy
+  section with a Tailscale diagram, FAQ. Fully self-contained (no CDNs/fonts,
+  matching the project's no-external posture), same design tokens as the app.
+  `landing/sw.js` self-destructs the old hosted PWA's service worker/caches.
+  Deployed. Note: the GitHub links point at the private repo — make it public
+  (or swap links) for visitors to be able to download.
+- **setup-windows.ps1 hardening** after a field report (task not registered, no
+  visible error): whole body in try/catch so the elevated window never closes
+  silently, `Start-Transcript` → `setup.log`, task registration verified via
+  `Get-ScheduledTask`, `/api/ping` polled to confirm Argus answers, and the
+  execution-time-limit set via the settings property (`PT0S`) because
+  `-ExecutionTimeLimit ([TimeSpan]::Zero)` is rejected on some Windows builds
+  (default 72h limit would kill Argus). Boot-delay set best-effort. Setup now
+  also seeds `data\cameras.json` so the config file visibly exists. `logs/` +
+  `setup.log` gitignored; uninstall removes `setup.log` too.
 
 ### 2026-07-14
 - **Windows start-at-boot + full uninstall (no-Docker path).** Added
