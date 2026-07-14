@@ -216,27 +216,25 @@ function showGate() {
   $("signin-gate").hidden = false;
 }
 
-async function gateAuth(mode) {
+async function gateAuth() {
   const email = $("gate-email").value.trim();
   const pass = $("gate-pass").value;
   const noteEl = $("gate-note");
-  if (!email || !pass) { noteEl.textContent = "Enter your email and a password."; return; }
-  noteEl.textContent = mode === "signUp" ? "Creating your account…" : "Signing in…";
+  const btn = $("gate-signin");
+  if (!email || !pass) { noteEl.textContent = "Enter your email and password."; return; }
+  btn.disabled = true;
+  noteEl.textContent = "Signing in…";
   try {
-    const endpoint = mode === "signUp" ? "accounts:signUp" : "accounts:signInWithPassword";
-    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/${endpoint}?key=${FIREBASE_API_KEY}`, {
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password: pass, returnSecureToken: true }),
     });
     const data = await res.json();
     if (!res.ok) {
       const code = (data.error && data.error.message) || "";
-      throw new Error(
-        /EMAIL_EXISTS/.test(code) ? "That email already has an account — use Sign in." :
-        /WEAK_PASSWORD/.test(code) ? "Password must be at least 6 characters." :
-        /EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS/.test(code)
-          ? "Wrong email or password. (Google sign-ins: set a password via “Forgot password” on the account page.)"
-          : `Failed: ${code || res.status}`);
+      throw new Error(/EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS/.test(code)
+        ? "Wrong email or password. (Signed up with Google? Use “Forgot password” on the account page to set one.)"
+        : `Sign-in failed: ${code || res.status}`);
     }
     noteEl.textContent = "Linking this box…";
     const linkRes = await fetch(`${ARGUS.backendBase()}/api/license/link`, {
@@ -248,10 +246,11 @@ async function gateAuth(mode) {
     location.reload();
   } catch (err) {
     noteEl.textContent = err.message;
+    btn.disabled = false;
   }
 }
-$("gate-signin").addEventListener("click", () => gateAuth("signIn"));
-$("gate-signup").addEventListener("click", () => gateAuth("signUp"));
+$("gate-signin").addEventListener("click", gateAuth);
+$("gate-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") gateAuth(); });
 
 async function boot() {
   let lic = null;
