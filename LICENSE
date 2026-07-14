@@ -1,21 +1,36 @@
-MIT License
+Argus Source-Available License v1.0
 
-Copyright (c) 2026 Tristan MW
+Copyright (c) 2026 Tristan MW. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is granted, free of charge, to any person obtaining a copy of this
+software and associated documentation (the "Software") to:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+  1. USE the Software to monitor up to two (2) cameras at no cost, and more
+     cameras under a valid paid license key;
+  2. VIEW and AUDIT the source code;
+  3. MODIFY the Software solely for the licensee's own internal use.
+
+The following are NOT permitted without prior written consent of the
+copyright holder:
+
+  a. redistributing the Software or any modified version of it, in source or
+     binary form, whether or not for a fee;
+  b. incorporating any part of the Software into another product or project;
+  c. removing, disabling, or circumventing the license-enforcement
+     functionality, or assisting others in doing so;
+  d. offering the Software to third parties as a hosted or managed service.
+
+Third-party components (including the go2rtc streaming engine) remain under
+their own licenses and are not covered by this license.
+
+Versions of this Software published on or before 14 July 2026 were made
+available under the MIT License; this license applies to all later versions.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
+FROM THE USE OF THE SOFTWARE.
+
+This is not legal advice; have a lawyer review before relying on it
+commercially.

@@ -73,7 +73,12 @@ frontend owns layout, labels, grid switching, mute-all, and fullscreen.
 | `.gitignore` / `.dockerignore` | Block service-account keys and other secrets from ever being committed or entering the image. |
 | `licensing.js` | Subscription enforcement: 2 cameras free, Ed25519-signed keys (verified offline against the embedded public key) raise the limit. Named `licensing` — `require("./license")` would hit the `LICENSE` text file on case-insensitive filesystems. |
 | `tools/license-sign.js` | CLI to issue keys (`--email --extra N [--months M]`); signs with the private key kept OUTSIDE the repo (`~/Documents/Wiltech/argus-license-keys/`). |
-| `docs/monetisation.md` | Runbook: pricing model, key issuing, PayPal plan setup, automation roadmap, licensing caveat. |
+| `docs/monetisation.md` | Runbook: pricing model, portal flow (diagram), key issuing, PayPal plan setup, automation roadmap. |
+| `landing/account.html` | Customer portal: Firebase Auth (Google + email/password), shows entitlement + license key, camera request form. |
+| `landing/admin.html` | Admin panel (verified `tristan@alasia.co.za` only): lists all licenses, edit paid/bonus/active/until per user. |
+| `firestore.rules` | Locked-down rules for `licenses/{uid}` (replaced test mode): users touch only their request fields; entitlements/keys admin-only. Deployed. |
+| `tools/license-sync.js` | Zero-dep issuer: service-account JWT → Firestore REST, signs keys for entitled accounts (paid roll 40d while `active`; bonus 10y), writes them back. Idempotent. |
+| `LICENSE` / `EULA.md` | Source-available license (replaced MIT for versions after 2026-07-14) + end-user terms. |
 | `start-windows.bat` / `start-macos.sh` | Non-Docker manual run (needs Node + a downloaded go2rtc binary; visible windows). |
 | `setup-windows.bat` / `setup-windows.ps1` | **No-Docker Windows install.** Installs Node (winget) + go2rtc if missing, opens firewall (group "Argus"), registers the "Argus Video Wall" scheduled task to run at every boot as SYSTEM — silent, no login needed. Re-runnable. |
 | `run-argus.ps1` | Headless supervisor the boot task runs: waits for the LAN, starts go2rtc + `server.js` hidden, restarts either on crash, logs to `logs\`. |
@@ -176,6 +181,32 @@ targeted probe rather than a full sweep.
   Access are the intended access-control layer if you go beyond the LAN.
 
 ## Changelog
+
+### 2026-07-14 (evening)
+- **License/EULA + account portal + admin-managed entitlements.**
+  - `LICENSE`: MIT → Argus Source-Available v1.0 (use free tier, audit,
+    modify for own use; no redistribution/reuse/circumvention; MIT still
+    applies to versions ≤ 2026-07-14). New `EULA.md`.
+  - **Portal** on Firebase Hosting: `account.html` (Auth: Google +
+    email/password; shows entitlement + key; camera request form) and
+    `admin.html` (only verified `tristan@alasia.co.za`; lists all licenses;
+    edits `paidCams`/`bonusCams`/`active`/`until` — bonus = manual free-tier
+    grants). Web app "Argus Portal" registered on the Firebase project.
+  - **Firestore** `licenses/{uid}` with locked-down `firestore.rules`
+    (deployed — closed the test-mode hole).
+  - **`tools/license-sync.js`** (zero-dep): service-account JWT → Firestore
+    REST; signs keys for entitled accounts (paid: rolling 40 days while
+    `active`, renewed when <20 days left; bonus-only: 10 years; explicit
+    `until` wins) and writes them to each doc. Verified end-to-end against
+    live Firestore: seed doc (3 paid + 2 bonus, active) → key for 7 cams
+    issued → verifies with `licensing.js` → idempotent second run → cleanup.
+  - Landing: "Sign in" nav + pricing CTA → account page. Live site remains
+    intentionally offline; deployed preview channel `portal-test` (7 days)
+    for testing. Note: preview domain must be added to Auth authorized
+    domains manually (permission-gated); the real domain already works.
+  - Decision recorded: keys are signed ONLY on the admin Mac (Firestore holds
+    entitlements + issued keys, never the private key); Go single-file
+    binaries noted as roadmap (packaging win; needs code signing).
 
 ### 2026-07-14 (later)
 - **Monetisation: 2 cameras free, $2/camera/month via PayPal + offline license

@@ -1,0 +1,49 @@
+rules_version = '2';
+// Argus license store. Replaces the insecure "test mode" rules.
+//
+// One doc per user: licenses/{uid}
+//   email          user's email (set at first sign-in)
+//   requestedCams  cameras the user wants to pay for (their subscribe request)
+//   subscriptionId PayPal subscription id the user reports
+//   paidCams       ADMIN-set: verified paid cameras
+//   bonusCams      ADMIN-set: free extra cameras granted manually
+//   active         ADMIN-set: subscription verified & in good standing
+//   until          ADMIN-set (optional): explicit expiry override
+//   key/keyCams/keyUntil/keyIssuedAt  written by tools/license-sync.js
+//                  (service account — bypasses these rules)
+//
+// Users can read their own doc and only touch their request fields.
+// Entitlements and keys are admin/tool territory.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'tristan@alasia.co.za'
+        && request.auth.token.email_verified == true;
+    }
+
+    function userFieldsOnly() {
+      return request.resource.data.diff(resource == null ? {} : resource.data)
+        .affectedKeys()
+        .hasOnly(['email', 'requestedCams', 'subscriptionId', 'updatedAt']);
+    }
+
+    match /licenses/{uid} {
+      allow get: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+        || (request.auth != null && request.auth.uid == uid
+            && request.resource.data.keys()
+               .hasOnly(['email', 'requestedCams', 'subscriptionId', 'updatedAt'])
+            && request.resource.data.email == request.auth.token.email);
+      allow update: if isAdmin()
+        || (request.auth != null && request.auth.uid == uid && userFieldsOnly());
+      allow delete: if isAdmin();
+    }
+    // Everything else: no access (default deny, stated explicitly).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

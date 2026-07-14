@@ -1,108 +1,117 @@
 # Argus monetisation — runbook
 
-**Model:** 2 cameras free forever · **$2 per additional camera per month**,
-paid by PayPal subscription. Enforced by offline-verified license keys — no
-cloud dependency, keeps the "your video never leaves your box" promise.
+**Model:** 2 cameras free forever · **$2 per additional camera per month** ·
+PayPal subscription. Accounts + entitlements live in Firebase (Auth +
+Firestore); license keys are Ed25519-signed on the admin's Mac and verified
+**offline** on each customer's box — video and camera config never touch the
+cloud.
 
-## How it works
+## Architecture
 
 ```mermaid
-sequenceDiagram
-  participant C as Customer
-  participant P as PayPal
-  participant T as You (Wiltech)
-  participant A as Customer's Argus box
-  C->>P: Subscribe ($2 × N cameras / month)
-  P-->>T: Subscription notification (email / webhook)
-  T->>T: node tools/license-sign.js --email c@x.com --extra N
-  T-->>C: Email the ARGUS.… key
-  C->>A: Paste key in config page → Activate
-  A->>A: Verify Ed25519 signature offline; limit = 2 + N
+flowchart LR
+  subgraph Portal [argus-videowall.web.app — Firebase]
+    L[landing index.html]
+    ACC[account.html<br/>Auth: Google + email]
+    ADM[admin.html<br/>tristan@alasia.co.za only]
+    FS[(Firestore<br/>licenses/uid)]
+  end
+  subgraph Admin [Your Mac]
+    SYNC[tools/license-sync.js<br/>service account + private signing key]
+  end
+  subgraph Box [Customer's Argus box]
+    SRV[server.js + licensing.js<br/>offline Ed25519 verify]
+  end
+  U[Customer] -->|sign in, request cameras| ACC
+  ACC <-->|own doc only| FS
+  ADM <-->|all docs: paid/bonus/active| FS
+  SYNC <-->|reads entitlements, writes keys| FS
+  U -->|pastes key| SRV
+  P[PayPal] -.->|subscription notice| ADM
 ```
 
-- `licensing.js` — verification module (embedded public key). 2 free cameras
-  (`FREE_CAMERAS`); a valid, unexpired key raises the limit to its `cams`.
-- Enforcement: `PUT /api/cameras` returns **402 `license_limit`** when the list
-  exceeds the limit; on boot, only the first `limit` saved cameras are
-  registered with the engine (nothing is deleted).
-- `GET/PUT/DELETE /api/license` — status / activate / remove. Config page has
-  the UI (status line + paste-key field).
-- `tools/license-sign.js` — signs keys with the **private key**, which lives
-  ONLY at `~/Documents/Wiltech/argus-license-keys/argus-license-private.pem`
-  (never in the repo; back it up — losing it means reissuing every customer
-  from a new keypair).
+## The flow, end to end
 
-## Issuing keys
+1. Customer signs in at **/account.html** (Google or email/password), enters
+   how many extra cameras they want, subscribes via PayPal (button pending —
+   see below), and saves the request (`requestedCams`, `subscriptionId`).
+2. You get PayPal's notification email; open **/admin.html**, find the row,
+   set `paid` = the verified quantity, tick **active**, Save.
+   **Manual free tier:** set `bonus` cameras for anyone you want to comp —
+   no payment involved.
+3. Run `node tools/license-sync.js` (or let cron/launchd run it weekly).
+   It signs a key for every entitled account and writes it to their doc.
+   Paid keys roll 40 days ahead and auto-renew while `active`; bonus-only
+   keys last 10 years. Cancellations: untick **active** — the key ages out
+   within ~40 days.
+4. The key appears on the customer's account page; they paste it into
+   **Add cameras → License → Activate** on their box. Done.
+
+## Firestore doc (licenses/{uid})
+
+| Field | Writer | Meaning |
+|---|---|---|
+| `email`, `requestedCams`, `subscriptionId`, `updatedAt` | customer | their request |
+| `paidCams`, `bonusCams`, `active`, `until` (optional override) | admin page | entitlement |
+| `key`, `keyCams`, `keyUntil`, `keyIssuedAt` | license-sync | the issued key |
+
+Security rules (`firestore.rules`, deployed — replaced test mode): users
+read/write only their own request fields; entitlements and keys are
+admin/service-account only; admin = verified `tristan@alasia.co.za`.
+
+## Secrets (never in the repo)
+
+- **Signing key:** `~/Documents/Wiltech/argus-license-keys/argus-license-private.pem`
+  — BACK THIS UP; losing it means re-keying every customer.
+- **Service account:** the `argus-videowall-firebase-adminsdk-…json` file
+  (Downloads by default; move somewhere stable and pass `--key-file` or set
+  `GOOGLE_APPLICATION_CREDENTIALS`).
+
+## Manual key issuing (no Firestore needed)
+
+`node tools/license-sign.js --email x@y.com --extra 4 [--months 3]` still
+works for one-off/offline customers.
+
+## PayPal (still to do — needs your account)
+
+Create a Business plan ($2/month, `quantity_supported:true`) and put the JS
+SDK subscribe button on account.html; exact API calls and button snippet:
 
 ```bash
-# 4 paid cameras (customer wall of 6), valid 1 month + 5 days grace:
-node tools/license-sign.js --email jane@example.com --extra 4
-
-# quarterly key (fewer re-issues):
-node tools/license-sign.js --email jane@example.com --extra 4 --months 3
+TOKEN=$(curl -s -u "CLIENT_ID:SECRET" https://api-m.paypal.com/v1/oauth2/token \
+  -d grant_type=client_credentials | python3 -c 'import json,sys;print(json.load(sys.stdin)["access_token"])')
+PRODUCT=$(curl -s -X POST https://api-m.paypal.com/v1/catalogs/products \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"Argus additional camera","type":"SERVICE"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
+curl -s -X POST https://api-m.paypal.com/v1/billing/plans \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{
+    "product_id":"'$PRODUCT'","name":"Argus camera ($2/mo each)",
+    "billing_cycles":[{"frequency":{"interval_unit":"MONTH","interval_count":1},
+      "tenure_type":"REGULAR","sequence":1,"total_cycles":0,
+      "pricing_scheme":{"fixed_price":{"value":"2","currency_code":"USD"}}}],
+    "payment_preferences":{"auto_bill_outstanding":true},
+    "quantity_supported":true}'
 ```
 
-Email the printed `ARGUS.…` line to the customer; they paste it in
-**Add cameras → License → Activate**. Expiry behaviour: saving new cameras
-over the limit is blocked and, after reboot, cameras beyond the limit stop
-streaming — the list itself is never deleted, so renewing restores everything.
+```html
+<script src="https://www.paypal.com/sdk/js?client-id=CLIENT_ID&vault=true&intent=subscription"></script>
+<script>
+  paypal.Buttons({
+    createSubscription: (d, a) => a.subscription.create({ plan_id: "P-XXXX", quantity: String(qty) }),
+    onApprove: (data) => saveRequest(qty, data.subscriptionID),  // account.html wires this
+  }).render("#paypal-btn");
+</script>
+```
 
-**Key-length policy (pick one):**
-- `--months 1` — tight enforcement, but you re-issue every month per customer.
-- `--months 3`/`12` — less toil; a cancelled subscriber keeps access until the
-  key runs out (acceptable churn at $2/camera).
-- Long-term fix: webhook automation (below) makes monthly keys effortless.
+## Roadmap
 
-## PayPal setup (one-time)
-
-1. PayPal **Business** account.
-2. Create the product + plan (quantity-enabled so one plan covers any camera
-   count). In the [developer dashboard](https://developer.paypal.com) get a
-   client ID + secret, then:
-   ```bash
-   TOKEN=$(curl -s -u "CLIENT_ID:SECRET" https://api-m.paypal.com/v1/oauth2/token \
-     -d grant_type=client_credentials | python3 -c 'import json,sys;print(json.load(sys.stdin)["access_token"])')
-   PRODUCT=$(curl -s -X POST https://api-m.paypal.com/v1/catalogs/products \
-     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-     -d '{"name":"Argus additional camera","type":"SERVICE"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
-   curl -s -X POST https://api-m.paypal.com/v1/billing/plans \
-     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{
-       "product_id":"'$PRODUCT'","name":"Argus camera ($2/mo each)",
-       "billing_cycles":[{"frequency":{"interval_unit":"MONTH","interval_count":1},
-         "tenure_type":"REGULAR","sequence":1,"total_cycles":0,
-         "pricing_scheme":{"fixed_price":{"value":"2","currency_code":"USD"}}}],
-       "payment_preferences":{"auto_bill_outstanding":true},
-       "quantity_supported":true}'
-   ```
-   Note the returned plan id (`P-…`).
-3. On the landing page pricing card, replace the mailto button with the PayPal
-   JS SDK subscribe button (quantity = number of *paid* cameras):
-   ```html
-   <script src="https://www.paypal.com/sdk/js?client-id=CLIENT_ID&vault=true&intent=subscription"></script>
-   <div id="paypal-btn"></div>
-   <script>
-     paypal.Buttons({
-       createSubscription: (d, actions) =>
-         actions.subscription.create({ plan_id: "P-XXXX", quantity: String(qty) }),
-       onApprove: (data) => location.href = "thanks.html?sub=" + data.subscriptionID,
-     }).render("#paypal-btn");
-   </script>
-   ```
-4. Subscription notifications arrive by email (or configure a webhook for
-   `BILLING.SUBSCRIPTION.ACTIVATED` / `.CANCELLED`). On each: issue/renew the
-   key with `license-sign.js` and email it.
-
-## Roadmap to full automation (when volume justifies it)
-
-A tiny cloud function (Cloudflare Worker free tier, or Firebase Functions on
-Blaze) that: receives PayPal webhooks → verifies them → signs a key with the
-private key (stored as a secret) → emails it. Later, Argus itself could
-optionally poll a `renew?sub=I-XXXX` endpoint to fetch fresh keys
-automatically — opt-in, so the offline promise holds for those who care.
-
-## ⚠ Licensing decision still open
-
-The repo ships with an **MIT** `LICENSE`, which explicitly permits removing
-the camera limit and redistributing. Before public launch, switch new releases
-to a source-available license (e.g. FSL, BUSL, or a custom "free for personal
-use / 2 cameras" grant) and update the landing page + README accordingly.
+- **Webhook automation:** PayPal `BILLING.SUBSCRIPTION.ACTIVATED/CANCELLED` →
+  Cloud Function/Worker sets `paidCams`/`active` automatically; license-sync
+  on a schedule does the rest. Zero-touch subscriptions.
+- **Single-file installs:** port the backend to Go (embed `web/` via
+  `embed.FS`, auto-download go2rtc) → one `argus.exe` / `argus-macos` /
+  `argus-linux` binary, no Node prerequisite. Side effect: source no longer
+  ships to customers. Needs a code-signing cert for Windows/macOS to avoid
+  SmartScreen/Gatekeeper friction.
+- Licensing is now **source-available** (see LICENSE, EULA.md) — have a
+  lawyer review before public launch.
