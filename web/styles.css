@@ -271,6 +271,11 @@ body {
 .config-actions { display: flex; align-items: center; gap: 10px; margin-top: var(--s5); }
 .config-actions .spacer { flex: 1; }
 
+/* The hidden attribute must always win — author display rules (e.g. the
+   flex on .signin-gate) otherwise override the browser's [hidden] default,
+   painting elements the logic asked to hide. */
+[hidden] { display: none !important; }
+
 /* ── Account sign-in gate (wall overlay) ─────────────────────────────────── */
 .signin-gate {
   position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
