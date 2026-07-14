@@ -270,6 +270,11 @@ async function boot() {
   try {
     lic = await (await fetch(`${ARGUS.backendBase()}/api/license`, { cache: "no-store" })).json();
   } catch { /* backend unreachable — start() shows its own error */ }
+  // One-line boot diagnostic — this is the whole gate decision, made visible.
+  console.info("[argus] page:", location.href, "| backend:", ARGUS.backendBase(),
+    "| override:", ARGUS.getBackendOverride() || "(none)",
+    "| linked:", lic ? lic.linked : "(no license response)",
+    "| gate:", !!(lic && lic.requireAccount && !lic.linked));
   if (lic && lic.requireAccount && !lic.linked) { showGate(); return; }
   start();
 }
