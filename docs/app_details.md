@@ -193,6 +193,15 @@ targeted probe rather than a full sweep.
   (default 72h limit would kill Argus). Boot-delay set best-effort. Setup now
   also seeds `data\cameras.json` so the config file visibly exists. `logs/` +
   `setup.log` gitignored; uninstall removes `setup.log` too.
+- **Second field report** (task registered OK, but the `/api/ping` poll timed
+  out): verification now uses a raw `TcpClient` connect — PS 5.1's
+  `Invoke-WebRequest` can time out on `localhost` behind a system proxy with no
+  local bypass, so HTTP was the wrong probe. Setup also pre-warns when
+  8080/1984/8555 are held by a foreign process and, on failure, auto-prints
+  task state/last result, running processes, and log tails into `setup.log`.
+  `run-argus.ps1` writes a timestamped `logs\supervisor.log` (start, PIDs,
+  restarts) and both scripts `Unblock-File` the downloaded go2rtc exes
+  (mark-of-the-web can block background launches under some AV policies).
 
 ### 2026-07-14
 - **Windows start-at-boot + full uninstall (no-Docker path).** Added
