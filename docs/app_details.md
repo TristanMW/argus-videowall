@@ -202,6 +202,13 @@ targeted probe rather than a full sweep.
   `run-argus.ps1` writes a timestamped `logs\supervisor.log` (start, PIDs,
   restarts) and both scripts `Unblock-File` the downloaded go2rtc exes
   (mark-of-the-web can block background launches under some AV policies).
+- **Third field report (parse errors on PS 5.1):** all `.ps1` files are now
+  saved as UTF-8 **with BOM**. PS 5.1 reads BOM-less files as ANSI, so an em
+  dash in a string decoded into a curly double-quote — a string delimiter to
+  PS 5.1 — cascading into bogus parse errors (pwsh 7 parse checks passed
+  because it assumes UTF-8). Em dashes in scripts replaced with hyphens too.
+  Rule for this repo: **.ps1 files must be UTF-8 with BOM, and keep string
+  literals ASCII-only.**
 
 ### 2026-07-14
 - **Windows start-at-boot + full uninstall (no-Docker path).** Added
