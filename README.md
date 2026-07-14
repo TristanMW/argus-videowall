@@ -98,10 +98,15 @@ Then follow your platform.
 
 > **No Docker? (recommended for client PCs)** Docker Desktop needs CPU
 > virtualization + WSL2, and a paid licence for larger businesses. To skip all
-> that, run Argus **without Docker**: install [Node.js LTS](https://nodejs.org),
-> then double-click **`start-windows.bat`**. It downloads the go2rtc engine
-> automatically, enables WebRTC, and starts everything — no virtualization, no
-> WSL2, no Docker.
+> that, run Argus **without Docker**: double-click **`setup-windows.bat`**
+> (accept the admin prompt). It installs Node.js if needed, downloads the
+> go2rtc engine, opens the Windows Firewall for LAN access, and registers
+> Argus to **start silently at every boot** — no consoles, no login, no
+> virtualization, no WSL2, no Docker.
+>
+> - One-off visible run instead: `start-windows.bat`.
+> - Remove everything (boot task, firewall rules, engine, cameras — optionally
+>   the whole folder): double-click **`uninstall-windows.bat`**.
 
 ### macOS
 
@@ -222,7 +227,8 @@ so a refresh always loads the latest version.
 
 > PWA install needs a *secure context*: `http://localhost` on the same machine,
 > or an HTTPS address (Tailscale). Over a plain `http://<LAN-IP>` it runs but
-> won't install.
+> shows **"Not secure"** and won't install — that can't be silenced for plain
+> HTTP; the fix is [Remote access (Tailscale)](#remote-access-tailscale) below.
 
 ---
 
@@ -236,7 +242,10 @@ exposing anything to the public internet, use [Tailscale](https://tailscale.com)
 2. Enable HTTPS for your tailnet (Tailscale admin → DNS → *Enable HTTPS*).
 3. On the box, run:
    ```bash
-   ./tailscale-serve.sh
+   ./tailscale-serve.sh                                            # Linux / macOS
+   ```
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\tailscale-serve.ps1  # Windows
    ```
    This publishes the **UI on `https://<box>.<tailnet>.ts.net`** and **go2rtc on
    `:8443`**, both with valid auto-renewed certs, reachable only by your devices.

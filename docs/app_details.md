@@ -66,11 +66,14 @@ frontend owns layout, labels, grid switching, mute-all, and fullscreen.
 | `web/settings.js` | Resolves the backend + go2rtc base URLs (same-origin by default; overridable per device). |
 | `web/sw.js` / `web/manifest.webmanifest` / `web/icons/` | PWA service worker (caches the app shell), manifest, and icons — installable, offline shell. |
 | `web/styles.css` | Shared styling for wall + config page. |
-| `tailscale-serve.sh` | Exposes the UI (:443) and go2rtc (:8443) over HTTPS on your private tailnet for secure remote access. |
+| `tailscale-serve.sh` / `tailscale-serve.ps1` | Exposes the UI (:443) and go2rtc (:8443) over HTTPS on your private tailnet for secure remote access + a padlocked PWA install (sh = Linux/macOS, ps1 = Windows). |
 | `firebase.json` / `.firebaserc` | Optional Firebase Hosting config for the static `web/` shell (project `argus-videowall`). Backend/video stay local. |
 | `deploy-hosting.sh` | Deploys `web/` to Firebase Hosting using a service-account key **by reference** (never copied/committed); refuses a key inside the repo. |
 | `.gitignore` / `.dockerignore` | Block service-account keys and other secrets from ever being committed or entering the image. |
-| `start-windows.bat` / `start-macos.sh` | Non-Docker run (needs Node + a downloaded go2rtc binary). |
+| `start-windows.bat` / `start-macos.sh` | Non-Docker manual run (needs Node + a downloaded go2rtc binary; visible windows). |
+| `setup-windows.bat` / `setup-windows.ps1` | **No-Docker Windows install.** Installs Node (winget) + go2rtc if missing, opens firewall (group "Argus"), registers the "Argus Video Wall" scheduled task to run at every boot as SYSTEM — silent, no login needed. Re-runnable. |
+| `run-argus.ps1` | Headless supervisor the boot task runs: waits for the LAN, starts go2rtc + `server.js` hidden, restarts either on crash, logs to `logs\`. |
+| `uninstall-windows.bat` / `uninstall-windows.ps1` | Complete uninstall: stops everything, deletes the boot task + firewall rules, tears down the Docker deployment if present, and (on confirm) deletes the whole folder incl. saved cameras. |
 
 ## Data flow — saving cameras
 
@@ -170,7 +173,23 @@ targeted probe rather than a full sweep.
 
 ## Changelog
 
-### 2026-07-13
+### 2026-07-14
+- **Windows start-at-boot + full uninstall (no-Docker path).** Added
+  `setup-windows.ps1` (+ double-click `.bat` wrapper): installs Node via winget
+  if missing, downloads go2rtc, adds inbound firewall rules (group "Argus":
+  8080/1984/8555 TCP, 8555/5353 UDP) so the wall is reachable from the LAN, and
+  registers an "Argus Video Wall" scheduled task — runs `run-argus.ps1` at every
+  boot as SYSTEM, completely silent (no consoles, no login required). The runner
+  waits for the network, supervises go2rtc + `server.js` (auto-restart on
+  crash), and logs to `logs\`. Added `uninstall-windows.ps1` (+ `.bat`): stops
+  all processes, removes the task and firewall rules, tears down the Docker
+  deployment if present (`compose down -v --rmi local`), and optionally deletes
+  the entire folder (self-deleting via a detached `cmd`). README updated.
+- **`tailscale-serve.ps1`** — Windows equivalent of `tailscale-serve.sh`, added
+  because the PWA shows "Not secure" (and won't use the mic) over plain
+  `http://<LAN-IP>`: browsers only grant a secure context to `https://` or
+  `localhost`. Publishing via Tailscale HTTPS gives a valid cert and a clean
+  PWA install from `https://<box>.<tailnet>.ts.net`.
 - Named the project **Argus**; renamed the project folder from `customNVR`.
 - Initial scaffold. Chose go2rtc as the streaming engine and an iframe-per-tile
   frontend after confirming go2rtc serves embeddable `stream.html` /
