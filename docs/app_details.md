@@ -182,6 +182,18 @@ targeted probe rather than a full sweep.
 
 ## Changelog
 
+### 2026-07-14 (night, cont. 2)
+- **Sign-in loop solved** (gate persisted on a linked, licensed box; no
+  errors anywhere): the browser held a stale per-device backend override
+  (`localStorage["argus.backend"]`, set earlier by Detect/manual entry)
+  pointing at a different address, so the gate's license check queried the
+  wrong backend while the page's own origin box was healthy. Both wall and
+  config pages now **self-heal**: when served by an Argus box (own origin
+  answers `/api/ping` as argus), any stored override is dropped — overrides
+  now only apply to hosted (non-box) copies of the UI, their real purpose.
+  Diagnosed via console evidence: relative `fetch("/api/license")` returned
+  `linked:true` while the gate (using `backendBase()`) saw otherwise.
+
 ### 2026-07-14 (night, cont.)
 - **Tamper-resistance for hand-edited `cameras.json` / direct go2rtc PUTs.**
   The saved list was already sliced to the license limit at boot and on save;
