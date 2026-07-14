@@ -19,9 +19,17 @@ const PORT = Number(process.env.PORT || 8080);
 const WEB_DIR = process.env.WEB_DIR || path.join(__dirname, "web");
 const DATA_FILE = process.env.DATA_FILE || "/data/cameras.json";
 const GO2RTC_URL = (process.env.GO2RTC_URL || "http://go2rtc:1984").replace(/\/+$/, "");
-// Origin allowed to call the API cross-origin (e.g. a Firebase-hosted UI).
-// Default "*": fine on a private Tailscale network with no credentials in play.
-const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || "*";
+// Cross-origin access is DENIED by default. The wall/config UI is served by
+// this box (same-origin — needs no CORS). A wildcard here would let any website
+// the user visits read /api/cameras — whose RTSP URLs embed camera passwords —
+// or unlink the box, via the user's browser on the LAN. Only set ALLOW_ORIGIN
+// to a specific https origin if you deliberately serve the UI off-box (e.g. a
+// Firebase-hosted copy reaching the box over Tailscale). "*" is rejected.
+const ALLOW_ORIGIN = (() => {
+  const v = process.env.ALLOW_ORIGIN;
+  if (!v || v === "*") return ""; // same-origin only
+  return v.replace(/\/+$/, "");
+})();
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -331,14 +339,20 @@ async function serveStatic(req, res) {
 const server = http.createServer(async (req, res) => {
   const { pathname } = new URL(req.url, "http://x");
 
-  // CORS — lets a separately-hosted frontend (Firebase) reach this backend.
-  res.setHeader("Access-Control-Allow-Origin", ALLOW_ORIGIN);
+  // CORS — off unless an explicit off-box origin is configured (see ALLOW_ORIGIN).
+  // Same-origin (served-from-box) needs no CORS headers; omitting them means any
+  // other website is blocked from reading this API from the user's browser.
+  const origin = req.headers.origin;
   res.setHeader("Vary", "Origin");
+  const corsAllowed = ALLOW_ORIGIN && origin === ALLOW_ORIGIN;
+  if (corsAllowed) res.setHeader("Access-Control-Allow-Origin", ALLOW_ORIGIN);
   if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Access-Control-Max-Age", "86400");
-    res.writeHead(204).end();
+    if (corsAllowed) {
+      res.setHeader("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      res.setHeader("Access-Control-Max-Age", "86400");
+    }
+    res.writeHead(corsAllowed ? 204 : 403).end();
     return;
   }
 

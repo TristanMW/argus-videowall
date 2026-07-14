@@ -182,6 +182,25 @@ targeted probe rather than a full sweep.
 
 ## Changelog
 
+### 2026-07-14 (security sweep)
+- **Locked the Realtime Database** (was world read/write in test mode — app
+  doesn't use it, but it was an open abuse/billing vector). `database.rules.json`
+  denies all; deployed; verified now "Permission denied".
+- **Box CORS hardened:** `Access-Control-Allow-Origin` was `*`, letting any
+  website read `GET /api/cameras` (RTSP URLs carry camera passwords) or hit
+  state-changing endpoints via the user's LAN browser. Now off by default; only
+  a specific `ALLOW_ORIGIN` env origin is honoured (never `*`). Verified:
+  cross-origin reads get no ACAO, PUT/DELETE preflights 403, same-origin 200.
+- Verified secure (no change needed): Firestore rules (anon denied; non-admin
+  can't list / self-grant / read others), Storage (no public bucket), git
+  history (no secrets ever committed), repo private. Firebase web API key in
+  client is a public identifier, not a leak.
+- Added `docs/security.md`: findings table, residual risks, production
+  checklist, and an honest write-up of code-copy vs limit-tamper protection
+  (private repo + source-available license done; Go binary recommended to raise
+  the tamper bar before public launch).
+
+
 ### 2026-07-14 (night, cont. 3)
 - **The real "stuck on login" bug: CSS.** `web/styles.css` had no
   `[hidden] { display:none !important }` rule, so `.signin-gate`'s
