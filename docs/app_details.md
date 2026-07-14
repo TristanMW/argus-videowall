@@ -182,6 +182,15 @@ targeted probe rather than a full sweep.
 
 ## Changelog
 
+### 2026-07-14 (night, cont. 3)
+- **The real "stuck on login" bug: CSS.** `web/styles.css` had no
+  `[hidden] { display:none !important }` rule, so `.signin-gate`'s
+  `display:flex` overrode the browser's default for the `hidden` attribute —
+  the sign-in overlay painted permanently on the wall no matter what the
+  gate logic decided (boot diagnostic showed `gate:false` under a visible
+  login screen). One global rule fixes it. The earlier override self-heal
+  remains as legitimate hardening, but it was not the cause.
+
 ### 2026-07-14 (night, cont. 2)
 - **Sign-in loop solved** (gate persisted on a linked, licensed box; no
   errors anywhere): the browser held a stale per-device backend override
