@@ -182,6 +182,34 @@ targeted probe rather than a full sweep.
 
 ## Changelog
 
+### 2026-07-14 (night)
+- **PayPal live checkout wired.** Created product `PROD-08N14234AA7347129` +
+  volume plan `P-51X880623A737964GNJLE7CA` ("Additional Cameras — Monthly",
+  quantity-enabled, 1–4 @$5 / 5–9 @$4 / 10+ @$3, verified via API). Account
+  page renders live Smart Buttons with quantity auto-filled; `onApprove`
+  writes the subscription id to the user's doc. (Secret used once via API —
+  user instructed to rotate.)
+- **Account page v2 layout:** full-width (1180px), two-column — plan +
+  purchase in the main column, compact license-key card in a side rail.
+  Plan-picker cards (+1/+5/+10), stepper, live monthly total mirroring the
+  volume tiers, 8–9-camera "10 is cheaper" nudge.
+- **Box UI ⇄ account mirroring + sign-in sync.** Config page License section:
+  email/password "Sign in & sync" (Firebase Auth REST — works from LAN
+  origins where popup auth can't) → reads the user's own `licenses/{uid}` doc
+  (rules-scoped) → activates the key on the box automatically; shows
+  "using X of Y camera slots". Google-account users set a password via reset
+  or paste the key manually (kept as fallback).
+- **Hard camera-limit lock in the config UI:** "+ Add camera" disables at the
+  plan limit with a warning note linking to the account page (server-side 402
+  remains the backstop).
+- **license-sync downgrade fix** (admin report: lowering a number then
+  re-running didn't revert anything): docs at/below the free tier now get
+  their stale key fields *deleted* (Firestore REST updateMask deletes), so
+  the account page and box sign-in stop serving old keys. Verified live:
+  seed → 9-cam key → downgrade → key cleared. Caveat documented: a key
+  already activated on a box verifies offline until `keyUntil` — remote
+  revocation is impossible by design; paid keys age out in ≤40 days.
+
 ### 2026-07-14 (evening)
 - **License/EULA + account portal + admin-managed entitlements.**
   - `LICENSE`: MIT → Argus Source-Available v1.0 (use free tier, audit,

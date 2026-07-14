@@ -19,11 +19,11 @@
   body { background:var(--bg-app); color:var(--text-primary); font-family:var(--font-ui); line-height:1.55; -webkit-font-smoothing:antialiased; }
   a { color:var(--accent); text-decoration:none; }
   nav { border-bottom:1px solid var(--border-subtle); background:var(--bg-panel); position:sticky; top:0; z-index:10; }
-  .nav-inner { max-width:860px; margin:0 auto; padding:0 20px; height:58px; display:flex; align-items:center; gap:10px; }
+  .nav-inner { max-width:1180px; margin:0 auto; padding:0 20px; height:58px; display:flex; align-items:center; gap:10px; }
   .nav-inner img { width:24px; height:24px; border-radius:6px; }
   .nav-inner b { font-size:16px; }
   .nav-inner .sp { margin-left:auto; font-size:13.5px; display:flex; gap:16px; align-items:center; }
-  main { max-width:860px; margin:0 auto; padding:36px 20px 90px; }
+  main { max-width:1180px; margin:0 auto; padding:36px 20px 90px; }
   h1 { font-size:26px; letter-spacing:-0.02em; margin-bottom:6px; }
   .sub { color:var(--text-secondary); margin-bottom:28px; }
   .card { background:var(--bg-panel); border:1px solid var(--border-subtle); border-radius:14px; padding:24px; margin-bottom:20px; }
@@ -82,6 +82,11 @@
   #paypal-btn { max-width:360px; margin-top:16px; }
   details { margin-top:16px; }
   summary { cursor:pointer; font-size:13px; color:var(--text-muted); }
+  /* two-column account layout: main content + compact license rail */
+  .cols { display:grid; grid-template-columns:minmax(0,2fr) minmax(280px,1fr); gap:20px; align-items:start; }
+  .side .card { padding:18px; }
+  .side .keybox { min-height:120px; font-size:10.5px; }
+  @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
   @media (max-width:640px) { .stat-row, .plans { grid-template-columns:repeat(2,1fr); } }
   [hidden] { display:none !important; }
 </style>
@@ -122,6 +127,8 @@
     <h1>Your account</h1>
     <p class="sub"><span id="who"></span> · <a href="#" id="signout">sign out</a><span id="admin-link" hidden> · <a href="admin.html">admin panel</a></span></p>
 
+    <div class="cols">
+    <div class="main-col">
     <div class="card">
       <h2>Your plan <span class="badge" id="lic-badge"></span></h2>
       <div class="stat-row">
@@ -131,22 +138,6 @@
         <div class="stat"><b id="st-total">4</b><span>total allowed</span></div>
       </div>
       <div class="muted" id="until-line" style="margin-top:12px"></div>
-    </div>
-
-    <div class="card" id="key-card">
-      <h2>License key</h2>
-      <div id="key-none" class="muted">No key yet — it appears here shortly after your subscription (or grant) is confirmed.</div>
-      <div id="key-some" hidden>
-        <textarea class="keybox" id="keybox" readonly></textarea>
-        <div class="row" style="margin-top:10px">
-          <button class="btn btn-primary" id="copy">Copy key</button>
-          <span class="note" id="copy-note"></span>
-        </div>
-        <ol>
-          <li>Open your Argus box → <b>Add cameras</b> page.</li>
-          <li>Scroll to <b>License</b>, paste the key, hit <b>Activate</b>.</li>
-        </ol>
-      </div>
     </div>
 
     <div class="card">
@@ -184,6 +175,26 @@
         <button class="btn btn-ghost" id="sub-save" style="margin-top:12px">Link subscription</button>
       </details>
     </div>
+    </div><!-- /main-col -->
+
+    <aside class="side">
+      <div class="card" id="key-card">
+        <h2>License key</h2>
+        <div id="key-none" class="muted">No key yet — it appears here shortly after your subscription (or grant) is confirmed.</div>
+        <div id="key-some" hidden>
+          <textarea class="keybox" id="keybox" readonly></textarea>
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-ghost" id="copy">Copy key</button>
+            <span class="note" id="copy-note"></span>
+          </div>
+          <div class="muted" style="margin-top:10px">
+            Easiest: on your Argus box open <b>Add cameras → License</b> and use
+            <b>Sign in &amp; sync</b> — no copying needed. Or paste this key there manually.
+          </div>
+        </div>
+      </div>
+    </aside>
+    </div><!-- /cols -->
   </section>
 </main>
 

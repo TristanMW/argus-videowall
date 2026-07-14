@@ -70,14 +70,29 @@
 
       <div class="config-actions">
         <button id="add-row" class="btn">＋ Add camera</button>
+        <span id="limit-note" class="limit-note" hidden></span>
         <div class="spacer"></div>
         <button id="save" class="btn primary">💾 Save &amp; apply</button>
       </div>
 
-      <!-- License: 4 cameras free; a key (subscription) raises the limit. -->
+      <!-- License: 4 cameras free; a subscription raises the limit. Mirrors the
+           account page at argus-videowall.web.app/account.html. -->
       <div class="license">
-        <div class="license-head">License</div>
+        <div class="license-head">License &amp; subscription</div>
         <div id="license-status" class="hint">Checking license…</div>
+
+        <p class="hint">Sign in with your Argus account to sync this box with your subscription:</p>
+        <div class="backend-row">
+          <input id="lic-email" class="in" type="email" autocomplete="email" placeholder="you@example.com" />
+          <input id="lic-pass" class="in" type="password" autocomplete="current-password" placeholder="password" />
+          <button id="lic-signin" class="btn primary">Sign in &amp; sync</button>
+          <span id="lic-signin-note" class="status"></span>
+        </div>
+        <p class="hint">
+          Signed up with Google? Set a password first via “Forgot password” on the
+          <a href="https://argus-videowall.web.app/account.html" target="_blank" rel="noopener">account page</a>
+          — or paste your license key manually:
+        </p>
         <div class="backend-row">
           <input id="license-key" class="in" type="text" spellcheck="false"
                  placeholder="Paste your license key (ARGUS.…)" />

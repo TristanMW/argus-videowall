@@ -97,8 +97,10 @@ async function listLicenses(token) {
   return docs;
 }
 
-async function patchDoc(token, id, obj) {
-  const mask = Object.keys(obj).map((k) => `updateMask.fieldPaths=${k}`).join("&");
+// Fields in `obj` are written; fields in `deletes` are removed from the doc
+// (listed in the update mask but omitted from the body).
+async function patchDoc(token, id, obj, deletes = []) {
+  const mask = [...Object.keys(obj), ...deletes].map((k) => `updateMask.fieldPaths=${k}`).join("&");
   const fields = Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fsVal(v)]));
   const res = await fetch(`${BASE}/licenses/${id}?${mask}`, {
     method: "PATCH",
@@ -136,7 +138,17 @@ async function main() {
 
     if (entitled <= FREE_CAMERAS) {
       const why = (d.paidCams || 0) > 0 && !d.active ? "paid but not marked active" : "free tier";
-      console.log(`  – ${email}: no key needed (${why})`);
+      if (d.key) {
+        // Downgraded to the free tier: remove the stale key from the doc so the
+        // account page and box sign-in stop serving it. NOTE: a copy already
+        // activated on a box keeps verifying offline until its keyUntil date —
+        // offline keys can't be revoked remotely, they age out.
+        console.log(`  ✖ ${email}: ${why} now — clearing issued key (was ${d.keyCams} cams to ${d.keyUntil})`);
+        if (!DRY) await patchDoc(token, d.id, {}, ["key", "keyCams", "keyUntil", "keyIssuedAt"]);
+        issued++;
+      } else {
+        console.log(`  – ${email}: no key needed (${why})`);
+      }
       continue;
     }
 

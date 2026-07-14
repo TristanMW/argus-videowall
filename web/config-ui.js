@@ -34,7 +34,7 @@ function addRow(cam = {}) {
   });
 
   const remove = el("button", { type: "button", class: "row-btn danger", title: "Remove" }, "✕");
-  remove.addEventListener("click", () => tr.remove());
+  remove.addEventListener("click", () => { tr.remove(); updateAddLimit(); });
 
   const tr = el("tr", {}, [
     el("td", {}, name),
@@ -49,7 +49,26 @@ function addRow(cam = {}) {
     transcode: transcode.checked,
   });
   rowsEl.append(tr);
+  updateAddLimit();
   return tr;
+}
+
+// ── Plan limit: hard-lock the Add camera button at the subscription cap ──────
+const ACCOUNT_URL = "https://argus-videowall.web.app/account.html";
+let camLimit = Infinity; // refreshed from GET /api/license
+
+function updateAddLimit() {
+  const btn = document.getElementById("add-row");
+  const noteEl = document.getElementById("limit-note");
+  const atCap = Number.isFinite(camLimit) && rowsEl.children.length >= camLimit;
+  btn.disabled = atCap;
+  btn.title = atCap ? "Your plan's camera limit is reached" : "";
+  noteEl.hidden = !atCap;
+  if (atCap) {
+    noteEl.innerHTML =
+      `Plan limit reached (${camLimit} cameras) — ` +
+      `<a href="${ACCOUNT_URL}" target="_blank" rel="noopener">increase your subscription</a> to add more.`;
+  }
 }
 
 function collect() {
@@ -86,6 +105,7 @@ async function save() {
 
     // Re-render with backend-assigned ids so Test buttons light up.
     render(data.cameras);
+    loadLicense(); // refresh the "using X of Y" line
 
     if (data.warnings && data.warnings.length) {
       banner(
@@ -124,19 +144,23 @@ const licStatusEl = document.getElementById("license-status");
 const licKeyEl = document.getElementById("license-key");
 const licNoteEl = document.getElementById("license-note");
 
+// Mirrors the account page: shows the plan and how much of it is used here.
 function renderLicense(lic) {
-  const buy = `<a href="https://argus-videowall.web.app/#pricing" target="_blank" rel="noopener">get more cameras — from $5/camera/month</a>`;
+  camLimit = lic.limit || lic.free || 4;
+  updateAddLimit();
+  const used = rowsEl.children.length;
+  const usage = `You're using <b>${used}</b> of <b>${camLimit}</b> camera slot(s) on this box.`;
+  const buy = `<a href="${ACCOUNT_URL}" target="_blank" rel="noopener">manage your subscription</a>`;
   if (lic.licensed) {
     licStatusEl.innerHTML =
-      `✅ Licensed to <b>${escapeHtml(lic.email || "you")}</b> — up to <b>${lic.cams}</b> cameras until <b>${escapeHtml(lic.until)}</b>. ` +
-      `Renewals email you a fresh key; paste it below any time.`;
+      `✅ Licensed to <b>${escapeHtml(lic.email || "you")}</b> — <b>${lic.cams}</b> cameras until <b>${escapeHtml(lic.until)}</b>. ${usage} ${buy}.`;
   } else if (lic.expired) {
     licStatusEl.innerHTML =
-      `⚠ Your license expired on <b>${escapeHtml(lic.until)}</b> — back to the ${lic.free} free cameras. ` +
-      `Renew the subscription and paste the new key below (${buy}).`;
+      `⚠ Your license expired on <b>${escapeHtml(lic.until)}</b> — back to the ${lic.free} free cameras. ${usage} ` +
+      `Renew, then sign in below to re-sync (${buy}).`;
   } else {
     licStatusEl.innerHTML =
-      `<b>${lic.free}</b> cameras are included free, forever. Need more? ${buy}, then paste the key you receive below.` +
+      `<b>${lic.free}</b> cameras are included free, forever. ${usage} Need more? ${buy}.` +
       (lic.error ? `<br>⚠ ${escapeHtml(lic.error)}` : "");
   }
 }
@@ -147,6 +171,59 @@ async function loadLicense() {
     if (res.ok) renderLicense(await res.json());
   } catch { /* backend gone — the gate handles that */ }
 }
+
+// ── Sign in & sync: pull the license key from the user's Argus account ───────
+// Email/password via the Firebase Auth REST API (works from any LAN origin —
+// no authorized-domain requirement, unlike the popup flows), then read the
+// user's own licenses/{uid} doc (allowed by Firestore rules) and activate the
+// key on this box. Only the license key travels; no camera data leaves.
+const FIREBASE_API_KEY = "AIzaSyDwnINHwoFL9of-FrOOPN2KKr0K0hO0J-s";
+const FIRESTORE_DOC = (uid) =>
+  `https://firestore.googleapis.com/v1/projects/argus-videowall/databases/(default)/documents/licenses/${uid}`;
+
+document.getElementById("lic-signin").addEventListener("click", async () => {
+  const email = document.getElementById("lic-email").value.trim();
+  const pass = document.getElementById("lic-pass").value;
+  const noteEl = document.getElementById("lic-signin-note");
+  if (!email || !pass) { noteEl.textContent = "Enter your email and password."; return; }
+  noteEl.textContent = "Signing in…";
+  try {
+    const authRes = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`,
+      { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: pass, returnSecureToken: true }) }
+    );
+    const authData = await authRes.json();
+    if (!authRes.ok) {
+      const code = authData.error && authData.error.message || "";
+      throw new Error(/EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS/.test(code)
+        ? "Wrong email or password. (Google sign-ins: set a password via “Forgot password” on the account page.)"
+        : `Sign-in failed: ${code || authRes.status}`);
+    }
+    noteEl.textContent = "Fetching your license…";
+    const docRes = await fetch(FIRESTORE_DOC(authData.localId),
+      { headers: { Authorization: `Bearer ${authData.idToken}` } });
+    if (docRes.status === 404) throw new Error("No license on your account yet — the free tier is 4 cameras.");
+    if (!docRes.ok) throw new Error(`Could not read your account (HTTP ${docRes.status}).`);
+    const doc = await docRes.json();
+    const key = doc.fields && doc.fields.key && doc.fields.key.stringValue;
+    if (!key) throw new Error("Your account has no license key yet (free tier, or key still being issued).");
+
+    noteEl.textContent = "Activating on this box…";
+    const putRes = await fetch(`${ARGUS.backendBase()}/api/license`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    });
+    const status = await putRes.json();
+    if (!putRes.ok) throw new Error(status.error || `HTTP ${putRes.status}`);
+    noteEl.textContent = "";
+    document.getElementById("lic-pass").value = "";
+    renderLicense(status);
+    banner("ok", `Synced — this box is licensed for ${status.cams} cameras until ${escapeHtml(status.until)}.`);
+  } catch (err) {
+    noteEl.textContent = err.message;
+  }
+});
 
 document.getElementById("license-apply").addEventListener("click", async () => {
   const key = licKeyEl.value.trim();

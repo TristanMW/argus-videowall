@@ -271,6 +271,10 @@ body {
 .config-actions { display: flex; align-items: center; gap: 10px; margin-top: var(--s5); }
 .config-actions .spacer { flex: 1; }
 
+.limit-note { color: var(--warn); font-size: 12.5px; }
+.limit-note a { color: var(--accent); }
+#add-row:disabled { opacity: .45; cursor: not-allowed; }
+
 .license { margin-top: var(--s7); padding-top: var(--s5); border-top: 1px solid var(--border-subtle); }
 .license-head { font: 600 14px/1 var(--font-ui); color: var(--text-primary); margin-bottom: var(--s3); }
 .license .backend-row { margin-top: var(--s4); }
