@@ -1,14 +1,14 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Argus uninstaller — Windows. Removes everything the setup created.
+﻿# ─────────────────────────────────────────────────────────────────────────────
+# Argus uninstaller - Windows. Removes everything the setup created.
 #
 #   • Stops go2rtc + the Argus backend and deletes the start-at-boot task.
 #   • Removes the Argus firewall rules.
 #   • Tears down the Docker deployment too (containers, volume, images) if the
 #     Docker install path was used on this machine.
-#   • Deletes the downloaded engine, logs, and saved cameras — and optionally
+#   • Deletes the downloaded engine, logs, and saved cameras - and optionally
 #     the whole Argus folder.
 #
-# It does NOT uninstall Node.js or Docker Desktop themselves (shared tools —
+# It does NOT uninstall Node.js or Docker Desktop themselves (shared tools -
 # remove them from Windows "Installed apps" if you no longer want them).
 #
 # Double-click uninstall-windows.bat, or run:

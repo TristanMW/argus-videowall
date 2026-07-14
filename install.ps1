@@ -1,5 +1,5 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Argus installer — Windows (PowerShell).
+﻿# ─────────────────────────────────────────────────────────────────────────────
+# Argus installer - Windows (PowerShell).
 #
 # Uses your existing Docker if it's installed; otherwise installs Docker Desktop
 # via winget, then builds and starts Argus. Re-runnable.

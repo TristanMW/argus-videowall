@@ -1,11 +1,11 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Expose Argus over HTTPS on your Tailscale network — Windows version of
+﻿# ─────────────────────────────────────────────────────────────────────────────
+# Expose Argus over HTTPS on your Tailscale network - Windows version of
 # tailscale-serve.sh. Run ON the box that runs Argus, after setup-windows.bat.
 #
 # Why: browsers only treat https:// (or localhost) as secure. Over a plain
 # http://<LAN-IP>:8080 the PWA shows "Not secure" and won't install cleanly,
 # and two-way talk can't use the microphone. This publishes the app with a
-# valid, auto-renewed certificate — visible only to devices on your tailnet:
+# valid, auto-renewed certificate - visible only to devices on your tailnet:
 #   https://<this-box>.<tailnet>.ts.net        → the Argus UI + backend (:8080)
 #   https://<this-box>.<tailnet>.ts.net:8443   → go2rtc streams (:1984)
 #

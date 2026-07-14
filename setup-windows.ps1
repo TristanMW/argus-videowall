@@ -1,5 +1,5 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Argus setup — Windows, no Docker. Installs Argus as a start-at-boot service.
+﻿# ─────────────────────────────────────────────────────────────────────────────
+# Argus setup - Windows, no Docker. Installs Argus as a start-at-boot service.
 #
 # What it does (re-runnable):
 #   1. Installs Node.js LTS via winget if missing.
@@ -7,7 +7,7 @@
 #   3. Seeds data\cameras.json (the camera config file).
 #   4. Opens the Windows Firewall for LAN access (web UI, video, discovery).
 #   5. Registers an "Argus Video Wall" scheduled task that runs run-argus.ps1
-#      headless as SYSTEM at every boot — no login required.
+#      headless as SYSTEM at every boot - no login required.
 #   6. Starts it now, verifies it answers, and opens the video wall.
 #
 # Everything is logged to setup.log next to this script.
@@ -19,7 +19,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 $ErrorActionPreference = "Stop"
 
-# Scheduled tasks + firewall rules need admin — relaunch elevated if we aren't.
+# Scheduled tasks + firewall rules need admin - relaunch elevated if we aren't.
 $me = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $me.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
   Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`""
@@ -37,7 +37,7 @@ function Fail($m) {
   Read-Host "Press Enter to close"
   exit 1
 }
-# Raw TCP check — proxy settings can make HTTP requests to localhost time out
+# Raw TCP check - proxy settings can make HTTP requests to localhost time out
 # even when the server is up, so don't trust Invoke-WebRequest for this.
 function Test-Port($ho, $po) {
   try {
@@ -123,7 +123,7 @@ try {
     -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSScriptRoot\run-argus.ps1`"" `
     -WorkingDirectory $PSScriptRoot
   $trigger = New-ScheduledTaskTrigger -AtStartup
-  # Let the network stack settle before we bind ports (best-effort — some
+  # Let the network stack settle before we bind ports (best-effort - some
   # builds expose Delay as read-only; run-argus.ps1 also waits for the LAN).
   try { $trigger.Delay = "PT20S" } catch { Warn "Couldn't set a boot delay (harmless)." }
   $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
@@ -136,7 +136,7 @@ try {
   Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
     -Principal $principal -Settings $settings -Force | Out-Null
 
-  # Verify it really exists — this is the whole point of the setup.
+  # Verify it really exists - this is the whole point of the setup.
   $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
   if (-not $task) {
     Fail "The '$TaskName' task did not register. See setup.log and send it to support."
@@ -144,14 +144,14 @@ try {
   Info "Scheduled task registered (Task Scheduler Library > '$TaskName')."
 
   # ── 6. Start it now and verify it answers ──────────────────────────────────
-  # Flag foreign listeners first — a port conflict is a common silent killer.
+  # Flag foreign listeners first - a port conflict is a common silent killer.
   foreach ($p in 8080, 1984, 8555) {
     $own = Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue |
            Select-Object -First 1
     if ($own) {
       $owner = (Get-Process -Id $own.OwningProcess -ErrorAction SilentlyContinue).ProcessName
       if ($owner -notin @("node", "go2rtc")) {
-        Warn "Port $p is already in use by '$owner' — Argus may not be able to start until it's freed."
+        Warn "Port $p is already in use by '$owner' - Argus may not be able to start until it's freed."
       }
     }
   }
