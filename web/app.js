@@ -252,7 +252,20 @@ async function gateAuth() {
 $("gate-signin").addEventListener("click", gateAuth);
 $("gate-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") gateAuth(); });
 
+// A stale per-device backend override (stored ages ago by Detect/manual
+// entry) can point this page at a different box than the one that served it —
+// gating a perfectly healthy box. When our own origin IS an Argus box, it is
+// the backend; drop any override.
+async function healBackendOverride() {
+  if (!ARGUS.getBackendOverride()) return;
+  try {
+    const r = await fetch("/api/ping", { cache: "no-store" });
+    if (r.ok && (await r.json()).app === "argus") ARGUS.setBackendOverride("");
+  } catch { /* not served from a box (hosted copy) — keep the override */ }
+}
+
 async function boot() {
+  await healBackendOverride();
   let lic = null;
   try {
     lic = await (await fetch(`${ARGUS.backendBase()}/api/license`, { cache: "no-store" })).json();

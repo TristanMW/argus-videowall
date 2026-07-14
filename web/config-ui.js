@@ -428,6 +428,14 @@ document.getElementById("agate-signin").addEventListener("click", accountGateAut
 document.getElementById("agate-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") accountGateAuth(); });
 
 async function connect() {
+  // Served-from-a-box pages always talk to their own box: a stale per-device
+  // override must not point the UI (and its sign-in gate) somewhere else.
+  if (ARGUS.getBackendOverride()) {
+    try {
+      const ping = await fetch("/api/ping", { cache: "no-store" });
+      if (ping.ok && (await ping.json()).app === "argus") ARGUS.setBackendOverride("");
+    } catch { /* hosted copy — override stays */ }
+  }
   try {
     const res = await fetch(`${ARGUS.backendBase()}/api/cameras`, { cache: "no-store" });
     if (res.status === 403) { showAccountGate(); return; }
