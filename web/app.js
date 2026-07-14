@@ -93,11 +93,21 @@ function initToolbar() {
     toast(soundOn ? "Sound on" : "Sound muted");
   });
 
+  // The camera list can be minimised (☰ in the toolbar, « on the panel, or
+  // the [ key) and the choice is remembered per browser.
   const sideBtn = $("sidebar-toggle");
-  sideBtn.addEventListener("click", () => {
-    const collapsed = document.body.classList.toggle("sidebar-collapsed");
+  const setSidebarCollapsed = (collapsed) => {
+    document.body.classList.toggle("sidebar-collapsed", collapsed);
     sideBtn.setAttribute("aria-pressed", String(!collapsed));
-  });
+    sideBtn.title = collapsed ? "Show camera list ([)" : "Hide camera list ([)";
+    try { localStorage.setItem("argus.sidebar.collapsed", collapsed ? "1" : "0"); } catch {}
+  };
+  sideBtn.addEventListener("click", () =>
+    setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed")));
+  $("sidebar-collapse").addEventListener("click", () => setSidebarCollapsed(true));
+  try {
+    if (localStorage.getItem("argus.sidebar.collapsed") === "1") setSidebarCollapsed(true);
+  } catch {}
 
   $("fs-toggle").addEventListener("click", () => {
     if (document.fullscreenElement) document.exitFullscreen();

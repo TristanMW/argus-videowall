@@ -175,6 +175,12 @@ targeted probe rather than a full sweep.
 ## Changelog
 
 ### 2026-07-14 (later)
+- **Camera list can be minimised outside fullscreen** (field request — walls are
+  often used windowed). Added a visible `«` collapse button on the panel header
+  (the toolbar `☰` and the `[` key already toggled it, but weren't obvious),
+  and the collapsed/expanded choice now persists per browser via
+  `localStorage("argus.sidebar.collapsed")`, restored on load. Touched
+  `web/index.html`, `web/app.js`, `web/styles.css`.
 - **Landing page at argus-videowall.web.app.** Firebase Hosting now serves a new
   `landing/` site instead of the app shell: hero with an SVG video-wall mockup,
   stats, feature grid, config-page/talk mockups, how-it-works architecture

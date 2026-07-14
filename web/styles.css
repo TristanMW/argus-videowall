@@ -119,7 +119,9 @@ body {
   background: var(--bg-panel); border-right: 1px solid var(--border-default);
   transition: width var(--dur) var(--ease);
 }
-.sidebar__head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding: var(--s4) var(--s5); font: 600 14px/1 var(--font-ui); color: var(--text-primary); }
+.sidebar__head { display: flex; align-items: center; gap: var(--s3); padding: var(--s4) var(--s5); font: 600 14px/1 var(--font-ui); color: var(--text-primary); }
+.sidebar__head .pill--count { margin-right: auto; }
+.sidebar__collapse { width: var(--ctl-sm); height: var(--ctl-sm); flex: 0 0 auto; }
 .sidebar__search { margin: 0 var(--s4) var(--s3); width: calc(100% - 2*var(--s4)); height: var(--ctl-sm); }
 .cam-list { flex: 1 1 auto; overflow-y: auto; padding: var(--s2) 0; }
 .sidebar__hint { padding: var(--s4) var(--s5); color: var(--text-muted); font-size: 11px; border-top: 1px solid var(--border-subtle); }
