@@ -190,6 +190,69 @@ function licensedSlice(list) {
   return list.slice(0, limit);
 }
 
+// ── Account link: the box follows the user's Argus account ──────────────────
+// After "Sign in & sync" the box stores the Firebase refresh token (scoped by
+// Firestore rules to reading that user's own license doc) and re-fetches the
+// license at boot and every 6 hours. Upgrades, downgrades, and admin grants
+// then propagate without anyone touching the box. Offline boxes keep their
+// last key (it verifies locally); only an explicit "no key on the account"
+// clears it.
+const LINK_FILE = process.env.LICENSE_LINK_FILE || path.join(path.dirname(DATA_FILE), "license-link.json");
+const FIREBASE_API_KEY = "AIzaSyDwnINHwoFL9of-FrOOPN2KKr0K0hO0J-s"; // public web key
+const firestoreLicenseUrl = (uid) =>
+  `https://firestore.googleapis.com/v1/projects/argus-videowall/databases/(default)/documents/licenses/${uid}`;
+
+async function readLink() {
+  try { return JSON.parse(await fsp.readFile(LINK_FILE, "utf8")); } catch { return null; }
+}
+
+async function refreshLicenseFromAccount() {
+  const link = await readLink();
+  if (!link || !link.refreshToken) return { linked: false };
+  const before = license.getStatus(DATA_FILE);
+  try {
+    const tr = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FIREBASE_API_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(link.refreshToken)}`,
+    });
+    if (!tr.ok) {
+      console.warn("[argus] license link: token refresh rejected (sign in again on the config page)");
+      return { linked: true, error: "sign-in expired — sign in again on the config page" };
+    }
+    const tok = await tr.json();
+    // Firebase rotates refresh tokens — persist the newest one.
+    if (tok.refresh_token && tok.refresh_token !== link.refreshToken) {
+      fsp.writeFile(LINK_FILE, JSON.stringify({ ...link, refreshToken: tok.refresh_token }, null, 2)).catch(() => {});
+    }
+    const dr = await fetch(firestoreLicenseUrl(tok.user_id), {
+      headers: { Authorization: `Bearer ${tok.id_token}` },
+    });
+    if (!dr.ok && dr.status !== 404) return { linked: true, error: `account read failed (HTTP ${dr.status})` };
+    const doc = dr.ok ? await dr.json() : {};
+    const key = doc.fields && doc.fields.key && doc.fields.key.stringValue;
+    if (key) {
+      try {
+        await license.setKey(DATA_FILE, key);
+      } catch (e) {
+        // Expired/invalid key on the account == no entitlement.
+        await license.clearKey(DATA_FILE);
+      }
+    } else if (before.licensed || before.expired) {
+      await license.clearKey(DATA_FILE);
+      console.log("[argus] account has no license key — reverted to the free tier");
+    }
+    const after = license.getStatus(DATA_FILE);
+    if (after.limit !== before.limit) {
+      console.log(`[argus] license refreshed from account: ${before.limit} → ${after.limit} cameras`);
+      initialSync().catch(() => {});
+    }
+    return { linked: true, ok: true };
+  } catch {
+    return { linked: true, error: "account unreachable (offline?) — keeping the current key" };
+  }
+}
+
 // On boot go2rtc may not be up yet — wait, enable WebRTC, then sync cameras.
 async function initialSync() {
   const list = await loadCameras();
@@ -292,7 +355,24 @@ const server = http.createServer(async (req, res) => {
     // License status / activation. The key is verified offline (Ed25519) —
     // no cloud round-trip, nothing about the cameras leaves the box.
     if (pathname === "/api/license" && req.method === "GET") {
-      return json(res, 200, license.getStatus(DATA_FILE));
+      const link = await readLink();
+      return json(res, 200, { ...license.getStatus(DATA_FILE), linked: !!link, linkedEmail: (link && link.email) || "" });
+    }
+
+    // Account link: store the refresh token and follow the account's license.
+    if (pathname === "/api/license/link" && req.method === "PUT") {
+      let body;
+      try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
+      if (!body.refreshToken) return json(res, 400, { error: "missing refreshToken" });
+      await fsp.mkdir(path.dirname(LINK_FILE), { recursive: true });
+      await fsp.writeFile(LINK_FILE, JSON.stringify({ refreshToken: body.refreshToken, email: body.email || "" }, null, 2));
+      const result = await refreshLicenseFromAccount();
+      const status = license.getStatus(DATA_FILE);
+      return json(res, 200, { ...status, linked: true, linkedEmail: body.email || "", syncError: result.error || "" });
+    }
+    if (pathname === "/api/license/link" && req.method === "DELETE") {
+      await fsp.rm(LINK_FILE, { force: true });
+      return json(res, 200, { ...license.getStatus(DATA_FILE), linked: false, linkedEmail: "" });
     }
     if (pathname === "/api/license" && req.method === "PUT") {
       let body;
@@ -334,7 +414,10 @@ server.on("error", (e) => {
 });
 server.listen(PORT, () => {
   console.log(`[argus] web UI on :${PORT}, go2rtc at ${GO2RTC_URL}`);
-  initialSync();
+  // Follow the linked account (if any) before the first engine sync, then
+  // re-check every 6 hours so account changes propagate on their own.
+  refreshLicenseFromAccount().finally(() => initialSync());
+  setInterval(() => refreshLicenseFromAccount().catch(() => {}), 6 * 3600 * 1000);
   // Advertise argus.local on the LAN so devices can find the box with no IP.
   // Best-effort: needs multicast reach (host networking); harmless if it can't.
   if (process.env.MDNS_DISABLE !== "1") {

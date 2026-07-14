@@ -151,18 +151,27 @@ function renderLicense(lic) {
   const used = rowsEl.children.length;
   const usage = `You're using <b>${used}</b> of <b>${camLimit}</b> camera slot(s) on this box.`;
   const buy = `<a href="${ACCOUNT_URL}" target="_blank" rel="noopener">manage your subscription</a>`;
+  const linked = lic.linked
+    ? `<br>🔗 Linked to <b>${escapeHtml(lic.linkedEmail || "your account")}</b> — the license updates automatically. <a href="#" id="lic-unlink">Unlink</a>`
+    : "";
   if (lic.licensed) {
     licStatusEl.innerHTML =
-      `✅ Licensed to <b>${escapeHtml(lic.email || "you")}</b> — <b>${lic.cams}</b> cameras until <b>${escapeHtml(lic.until)}</b>. ${usage} ${buy}.`;
+      `✅ Licensed to <b>${escapeHtml(lic.email || "you")}</b> — <b>${lic.cams}</b> cameras until <b>${escapeHtml(lic.until)}</b>. ${usage} ${buy}.${linked}`;
   } else if (lic.expired) {
     licStatusEl.innerHTML =
       `⚠ Your license expired on <b>${escapeHtml(lic.until)}</b> — back to the ${lic.free} free cameras. ${usage} ` +
-      `Renew, then sign in below to re-sync (${buy}).`;
+      `Renew, then sign in below to re-sync (${buy}).${linked}`;
   } else {
     licStatusEl.innerHTML =
-      `<b>${lic.free}</b> cameras are included free, forever. ${usage} Need more? ${buy}.` +
+      `<b>${lic.free}</b> cameras are included free, forever. ${usage} Need more? ${buy}.${linked}` +
       (lic.error ? `<br>⚠ ${escapeHtml(lic.error)}` : "");
   }
+  const unlink = document.getElementById("lic-unlink");
+  if (unlink) unlink.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const res = await fetch(`${ARGUS.backendBase()}/api/license/link`, { method: "DELETE" });
+    if (res.ok) renderLicense(await res.json());
+  });
 }
 
 async function loadLicense() {
@@ -172,14 +181,13 @@ async function loadLicense() {
   } catch { /* backend gone — the gate handles that */ }
 }
 
-// ── Sign in & sync: pull the license key from the user's Argus account ───────
+// ── Sign in & link: the box follows the user's Argus account ─────────────────
 // Email/password via the Firebase Auth REST API (works from any LAN origin —
-// no authorized-domain requirement, unlike the popup flows), then read the
-// user's own licenses/{uid} doc (allowed by Firestore rules) and activate the
-// key on this box. Only the license key travels; no camera data leaves.
+// no authorized-domain requirement, unlike the popup flows). The box stores
+// the refresh token and re-syncs the license from the account at boot and
+// every 6 hours, so upgrades/downgrades propagate on their own. Only the
+// license travels; no camera data leaves the box.
 const FIREBASE_API_KEY = "AIzaSyDwnINHwoFL9of-FrOOPN2KKr0K0hO0J-s";
-const FIRESTORE_DOC = (uid) =>
-  `https://firestore.googleapis.com/v1/projects/argus-videowall/databases/(default)/documents/licenses/${uid}`;
 
 document.getElementById("lic-signin").addEventListener("click", async () => {
   const email = document.getElementById("lic-email").value.trim();
@@ -195,31 +203,28 @@ document.getElementById("lic-signin").addEventListener("click", async () => {
     );
     const authData = await authRes.json();
     if (!authRes.ok) {
-      const code = authData.error && authData.error.message || "";
+      const code = (authData.error && authData.error.message) || "";
       throw new Error(/EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS/.test(code)
         ? "Wrong email or password. (Google sign-ins: set a password via “Forgot password” on the account page.)"
         : `Sign-in failed: ${code || authRes.status}`);
     }
-    noteEl.textContent = "Fetching your license…";
-    const docRes = await fetch(FIRESTORE_DOC(authData.localId),
-      { headers: { Authorization: `Bearer ${authData.idToken}` } });
-    if (docRes.status === 404) throw new Error("No license on your account yet — the free tier is 4 cameras.");
-    if (!docRes.ok) throw new Error(`Could not read your account (HTTP ${docRes.status}).`);
-    const doc = await docRes.json();
-    const key = doc.fields && doc.fields.key && doc.fields.key.stringValue;
-    if (!key) throw new Error("Your account has no license key yet (free tier, or key still being issued).");
-
-    noteEl.textContent = "Activating on this box…";
-    const putRes = await fetch(`${ARGUS.backendBase()}/api/license`, {
+    noteEl.textContent = "Linking this box to your account…";
+    const linkRes = await fetch(`${ARGUS.backendBase()}/api/license/link`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key }),
+      body: JSON.stringify({ refreshToken: authData.refreshToken, email }),
     });
-    const status = await putRes.json();
-    if (!putRes.ok) throw new Error(status.error || `HTTP ${putRes.status}`);
+    const status = await linkRes.json();
+    if (!linkRes.ok) throw new Error(status.error || `HTTP ${linkRes.status}`);
     noteEl.textContent = "";
     document.getElementById("lic-pass").value = "";
     renderLicense(status);
-    banner("ok", `Synced — this box is licensed for ${status.cams} cameras until ${escapeHtml(status.until)}.`);
+    if (status.syncError) {
+      banner("warn", `Linked, but the first sync had a problem: ${escapeHtml(status.syncError)}`);
+    } else if (status.licensed) {
+      banner("ok", `Linked & synced — this box is licensed for ${status.cams} cameras until ${escapeHtml(status.until)}. It now updates automatically.`);
+    } else {
+      banner("ok", `Linked. Your account is on the free tier (${status.free} cameras) — the box updates automatically when you subscribe.`);
+    }
   } catch (err) {
     noteEl.textContent = err.message;
   }

@@ -182,6 +182,18 @@ targeted probe rather than a full sweep.
 
 ## Changelog
 
+### 2026-07-14 (night, later)
+- **Boxes now follow the account automatically** (field report: box showed a
+  stale 14-cam key after an admin downgrade — local keys are snapshots).
+  "Sign in & sync" is now "sign in & **link**": the box stores the Firebase
+  refresh token (`data/license-link.json`; Firestore rules scope it to that
+  user's own doc) and re-fetches the license **at boot and every 6 hours** —
+  upgrades, downgrades, and grant removals propagate unattended. Account has
+  no key → box reverts to free tier; account unreachable → keep current key
+  (offline stays first-class). New `PUT/DELETE /api/license/link`; status
+  shows "🔗 Linked to <email>" + Unlink. Verified: link/unlink endpoints,
+  graceful bogus-token handling, crash-free boot with a bad link file.
+
 ### 2026-07-14 (night)
 - **PayPal live checkout wired.** Created product `PROD-08N14234AA7347129` +
   volume plan `P-51X880623A737964GNJLE7CA` ("Additional Cameras — Monthly",
