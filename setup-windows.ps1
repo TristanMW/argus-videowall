@@ -37,6 +37,17 @@ function Fail($m) {
   Read-Host "Press Enter to close"
   exit 1
 }
+# Raw TCP check — proxy settings can make HTTP requests to localhost time out
+# even when the server is up, so don't trust Invoke-WebRequest for this.
+function Test-Port($ho, $po) {
+  try {
+    $c = New-Object Net.Sockets.TcpClient
+    $ar = $c.BeginConnect($ho, $po, $null, $null)
+    $ok = $ar.AsyncWaitHandle.WaitOne(1500) -and $c.Connected
+    $c.Close()
+    return $ok
+  } catch { return $false }
+}
 
 try {
   # Stop anything from a previous run so downloads/registration aren't blocked.
@@ -72,6 +83,8 @@ try {
     Invoke-WebRequest -UseBasicParsing "https://github.com/AlexxIT/go2rtc/releases/latest/download/go2rtc_win64.zip" -OutFile $zip
     Expand-Archive -Force $zip "go2rtc"
     Remove-Item $zip -ErrorAction SilentlyContinue
+    # Clear the mark-of-the-web so AV policies don't block a background launch.
+    Get-ChildItem "go2rtc" -Filter *.exe | Unblock-File -ErrorAction SilentlyContinue
   }
   if (-not (Test-Path "go2rtc\go2rtc.exe")) {
     Fail "go2rtc.exe missing. Get go2rtc_win64.zip from https://github.com/AlexxIT/go2rtc/releases/latest and put go2rtc.exe in the go2rtc\ folder."
@@ -131,18 +144,42 @@ try {
   Info "Scheduled task registered (Task Scheduler Library > '$TaskName')."
 
   # ── 6. Start it now and verify it answers ──────────────────────────────────
+  # Flag foreign listeners first — a port conflict is a common silent killer.
+  foreach ($p in 8080, 1984, 8555) {
+    $own = Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue |
+           Select-Object -First 1
+    if ($own) {
+      $owner = (Get-Process -Id $own.OwningProcess -ErrorAction SilentlyContinue).ProcessName
+      if ($owner -notin @("node", "go2rtc")) {
+        Warn "Port $p is already in use by '$owner' — Argus may not be able to start until it's freed."
+      }
+    }
+  }
+
   Info "Starting Argus..."
   Start-ScheduledTask -TaskName $TaskName
   $up = $false
-  for ($i = 0; $i -lt 20; $i++) {
-    try {
-      Invoke-WebRequest -UseBasicParsing "http://localhost:8080/api/ping" -TimeoutSec 2 | Out-Null
-      $up = $true; break
-    } catch { Start-Sleep -Seconds 1 }
+  for ($i = 0; $i -lt 45; $i++) {
+    if (Test-Port "localhost" 8080) { $up = $true; break }
+    Start-Sleep -Seconds 1
   }
+
   if (-not $up) {
-    Warn "Argus didn't answer on http://localhost:8080 within 20s."
-    Warn "Task state: $((Get-ScheduledTask -TaskName $TaskName).State). Check logs\argus.err.log and setup.log."
+    Warn "Argus didn't answer on port 8080 within ~60s. Diagnostics:"
+    $ti = Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction SilentlyContinue
+    Warn ("  Task state : {0}   Last result: 0x{1:X}" -f (Get-ScheduledTask -TaskName $TaskName).State, $ti.LastTaskResult)
+    $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+             Where-Object { $_.CommandLine -like "*run-argus.ps1*" -or
+                            ($_.Name -in "go2rtc.exe", "node.exe" -and $_.CommandLine -like "*$PSScriptRoot*") }
+    Warn ("  Processes  : " + $(if ($procs) { ($procs | ForEach-Object { $_.Name }) -join ", " } else { "none of supervisor/go2rtc/node are running" }))
+    foreach ($lf in "supervisor.log", "argus.err.log", "go2rtc.err.log") {
+      $p = Join-Path $PSScriptRoot "logs\$lf"
+      if (Test-Path $p) {
+        Warn "  --- logs\$lf (last 5 lines) ---"
+        Get-Content $p -Tail 5 | ForEach-Object { Warn "    $_" }
+      } else { Warn "  logs\${lf}: missing" }
+    }
+    Warn "Everything above is also in setup.log - please send that file to support."
   }
 
   Write-Host ""
