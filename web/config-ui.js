@@ -369,12 +369,14 @@ function showGate() {
   connected = false;
   editorEl.hidden = true;
   connEl.hidden = true;
+  document.getElementById("account-gate").hidden = true;
   openGate();
 }
 
 function showEditor(list) {
   connected = true;
   gateEl.hidden = true;
+  document.getElementById("account-gate").hidden = true;
   editorEl.hidden = false;
   connEl.hidden = false;
   connEl.innerHTML = `<span class="dot live"></span> Connected to <code>${escapeHtml(ARGUS.backendBase())}</code> — use <strong>⚙ Backend</strong> to change.`;
@@ -382,9 +384,57 @@ function showEditor(list) {
   loadLicense();
 }
 
+// ── Account gate: box must be linked to an Argus account before editing ──────
+const accountGateEl = document.getElementById("account-gate");
+
+function showAccountGate() {
+  connected = false;
+  editorEl.hidden = true;
+  gateEl.hidden = true;
+  connEl.hidden = true;
+  accountGateEl.hidden = false;
+}
+
+async function accountGateAuth(mode) {
+  const email = document.getElementById("agate-email").value.trim();
+  const pass = document.getElementById("agate-pass").value;
+  const noteEl = document.getElementById("agate-note");
+  if (!email || !pass) { noteEl.textContent = "Enter your email and a password."; return; }
+  noteEl.textContent = mode === "signUp" ? "Creating your account…" : "Signing in…";
+  try {
+    const endpoint = mode === "signUp" ? "accounts:signUp" : "accounts:signInWithPassword";
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/${endpoint}?key=${FIREBASE_API_KEY}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: pass, returnSecureToken: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const code = (data.error && data.error.message) || "";
+      throw new Error(
+        /EMAIL_EXISTS/.test(code) ? "That email already has an account — use Sign in." :
+        /WEAK_PASSWORD/.test(code) ? "Password must be at least 6 characters." :
+        /EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS/.test(code)
+          ? "Wrong email or password. (Google sign-ins: set a password via “Forgot password” on the account page.)"
+          : `Failed: ${code || res.status}`);
+    }
+    noteEl.textContent = "Linking this box…";
+    const linkRes = await fetch(`${ARGUS.backendBase()}/api/license/link`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: data.refreshToken, email }),
+    });
+    if (!linkRes.ok) throw new Error("Could not link the box.");
+    location.reload();
+  } catch (err) {
+    noteEl.textContent = err.message;
+  }
+}
+document.getElementById("agate-signin").addEventListener("click", () => accountGateAuth("signIn"));
+document.getElementById("agate-signup").addEventListener("click", () => accountGateAuth("signUp"));
+
 async function connect() {
   try {
     const res = await fetch(`${ARGUS.backendBase()}/api/cameras`, { cache: "no-store" });
+    if (res.status === 403) { showAccountGate(); return; }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const list = await res.json();
     showEditor(Array.isArray(list) ? list : []);

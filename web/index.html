@@ -51,6 +51,25 @@
 
   <div class="toast" id="toast" hidden></div>
 
+  <!-- Account gate: shown until this box is linked to an Argus account. -->
+  <div class="signin-gate" id="signin-gate" hidden>
+    <div class="signin-card">
+      <div class="signin-brand"><span class="brand-dot"></span>Argus Video Wall</div>
+      <h2>Sign in to get started</h2>
+      <p>This box links to an Argus account — <b>4 cameras are free, forever</b>.
+         You sign in once; after that every screen on your network can view the wall.</p>
+      <input class="in" id="gate-email" type="email" autocomplete="email" placeholder="you@example.com" />
+      <input class="in" id="gate-pass" type="password" autocomplete="current-password" placeholder="password (6+ characters)" />
+      <div class="signin-btns">
+        <button class="btn primary" id="gate-signin">Sign in</button>
+        <button class="btn" id="gate-signup">Create free account</button>
+      </div>
+      <div class="signin-note" id="gate-note"></div>
+      <p class="signin-alt">Signed up with Google? Set a password via “Forgot password” on the
+        <a href="https://argus-videowall.web.app/account.html" target="_blank" rel="noopener">account page</a>.</p>
+    </div>
+  </div>
+
   <script src="settings.js"></script>
   <script src="wall.js"></script>
   <script src="app.js"></script>

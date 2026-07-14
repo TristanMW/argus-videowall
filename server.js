@@ -206,6 +206,16 @@ async function readLink() {
   try { return JSON.parse(await fsp.readFile(LINK_FILE, "utf8")); } catch { return null; }
 }
 
+// The app requires the box to be linked to an Argus account before cameras
+// can be viewed or managed (set ARGUS_REQUIRE_ACCOUNT=0 to opt out, e.g. for
+// fully offline installs provisioned by hand).
+const REQUIRE_ACCOUNT = process.env.ARGUS_REQUIRE_ACCOUNT !== "0";
+async function accountGate(res) {
+  if (!REQUIRE_ACCOUNT || (await readLink())) return false;
+  json(res, 403, { error: "account_required", accountUrl: "https://argus-videowall.web.app/account.html" });
+  return true;
+}
+
 async function refreshLicenseFromAccount() {
   const link = await readLink();
   if (!link || !link.refreshToken) return { linked: false };
@@ -228,6 +238,16 @@ async function refreshLicenseFromAccount() {
     const dr = await fetch(firestoreLicenseUrl(tok.user_id), {
       headers: { Authorization: `Bearer ${tok.id_token}` },
     });
+    if (dr.status === 404 && link.email) {
+      // First sign-in from a box: create the user's license doc so the admin
+      // panel can see (and grant cameras to) accounts that never opened the
+      // account page. Rules allow the user to create their own doc.
+      await fetch(`${firestoreLicenseUrl(tok.user_id)}?updateMask.fieldPaths=email`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${tok.id_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { email: { stringValue: link.email } } }),
+      }).catch(() => {});
+    }
     if (!dr.ok && dr.status !== 404) return { linked: true, error: `account read failed (HTTP ${dr.status})` };
     const doc = dr.ok ? await dr.json() : {};
     const key = doc.fields && doc.fields.key && doc.fields.key.stringValue;
@@ -324,10 +344,16 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (pathname === "/api/cameras" && req.method === "GET") {
-      return json(res, 200, await loadCameras());
+      if (await accountGate(res)) return;
+      // Cameras past the license limit are flagged so the wall can grey them
+      // out — they are never registered with the engine (see licensedSlice).
+      const list = await loadCameras();
+      const { limit } = license.getStatus(DATA_FILE);
+      return json(res, 200, list.map((c, i) => (i < limit ? c : { ...c, disabled: true })));
     }
 
     if (pathname === "/api/cameras" && req.method === "PUT") {
+      if (await accountGate(res)) return;
       let parsed;
       try {
         parsed = JSON.parse(await readBody(req));
@@ -356,7 +382,12 @@ const server = http.createServer(async (req, res) => {
     // no cloud round-trip, nothing about the cameras leaves the box.
     if (pathname === "/api/license" && req.method === "GET") {
       const link = await readLink();
-      return json(res, 200, { ...license.getStatus(DATA_FILE), linked: !!link, linkedEmail: (link && link.email) || "" });
+      return json(res, 200, {
+        ...license.getStatus(DATA_FILE),
+        linked: !!link,
+        linkedEmail: (link && link.email) || "",
+        requireAccount: REQUIRE_ACCOUNT,
+      });
     }
 
     // Account link: store the refresh token and follow the account's license.
@@ -418,6 +449,15 @@ server.listen(PORT, () => {
   // re-check every 6 hours so account changes propagate on their own.
   refreshLicenseFromAccount().finally(() => initialSync());
   setInterval(() => refreshLicenseFromAccount().catch(() => {}), 6 * 3600 * 1000);
+  // Reconcile the engine with the licensed camera list every 5 minutes. This
+  // re-trims after a hand-edited cameras.json without waiting for a reboot,
+  // and removes streams injected directly into go2rtc's API to sidestep the
+  // limit (go2rtc's port must stay reachable — the player iframes use it).
+  setInterval(async () => {
+    try {
+      if (await go2rtcUp()) await syncGo2rtc(licensedSlice(await loadCameras()));
+    } catch { /* engine down — boot sync handles recovery */ }
+  }, 5 * 60 * 1000);
   // Advertise argus.local on the LAN so devices can find the box with no IP.
   // Best-effort: needs multicast reach (host networking); harmless if it can't.
   if (process.env.MDNS_DISABLE !== "1") {

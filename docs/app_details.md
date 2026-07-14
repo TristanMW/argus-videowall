@@ -182,6 +182,28 @@ targeted probe rather than a full sweep.
 
 ## Changelog
 
+### 2026-07-14 (night, cont.)
+- **Tamper-resistance for hand-edited `cameras.json` / direct go2rtc PUTs.**
+  The saved list was already sliced to the license limit at boot and on save;
+  now a **5-minute reconcile** re-trims the engine continuously (removes
+  streams injected straight into go2rtc's API — that port must stay open for
+  the player iframes), and `GET /api/cameras` flags over-limit entries
+  `disabled: true`; the wall sidebar greys them out ("over limit") instead of
+  showing dead tiles. Verified: 6 saved cameras, limit 4 → c5/c6 disabled.
+- **Mandatory sign-in before the app is usable** (per-box, not per-viewer —
+  kiosk TVs keep working once the owner links the box). Unlinked box:
+  `/api/cameras` returns **403 account_required** (hard server-side gate);
+  the wall shows a full-screen sign-in overlay and the config page a gate
+  section — both support sign-in *and* create-account (Auth REST), then link
+  the box. `ARGUS_REQUIRE_ACCOUNT=0` opts out for fully offline installs.
+  On first link with no Firestore doc, the box creates the user's `licenses/`
+  doc so the admin panel can see accounts that never opened the account page.
+  Verified: 403 unlinked → linked → 200; env opt-out → 200.
+- **RTSP cheatsheet on the config page:** collapsible "RTSP URL examples by
+  camera brand" table — Dahua, Amcrest, Hikvision, EZVIZ, UniFi Protect,
+  Tapo, Reolink, Axis, Bosch, Pelco, GANZ, Vivotek, Foscam, Fanvil, generic
+  ONVIF guidance.
+
 ### 2026-07-14 (night, later)
 - **Boxes now follow the account automatically** (field report: box showed a
   stale 14-cam key after an admin downgrade — local keys are snapshots).

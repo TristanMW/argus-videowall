@@ -44,6 +44,25 @@
       <div id="detect-results" class="detect-results"></div>
     </section>
 
+    <!-- ACCOUNT GATE: the box must be linked to an Argus account first. -->
+    <section id="account-gate" class="gate" hidden>
+      <h2>Sign in to Argus</h2>
+      <p class="hint">
+        This box links to an Argus account before cameras can be managed —
+        <strong>4 cameras are free, forever</strong>. Sign in once; the box then
+        follows your subscription automatically.
+      </p>
+      <div class="backend-row">
+        <input id="agate-email" class="in" type="email" autocomplete="email" placeholder="you@example.com" />
+        <input id="agate-pass" class="in" type="password" autocomplete="current-password" placeholder="password (6+ characters)" />
+        <button id="agate-signin" class="btn primary">Sign in</button>
+        <button id="agate-signup" class="btn">Create free account</button>
+        <span id="agate-note" class="status"></span>
+      </div>
+      <p class="hint">Signed up with Google? Set a password via “Forgot password” on the
+        <a href="https://argus-videowall.web.app/account.html" target="_blank" rel="noopener">account page</a>.</p>
+    </section>
+
     <!-- EDITOR: revealed only once a backend connection is confirmed. -->
     <section id="editor" hidden>
       <p class="hint">
@@ -51,6 +70,32 @@
         the changes to the box's streaming engine live — then head back to the
         video wall. Tip: test a URL in VLC first (<em>Media → Open Network Stream</em>).
       </p>
+
+      <details class="rtsp-help">
+        <summary>📋 RTSP URL examples by camera brand</summary>
+        <p class="hint">Replace <code>user</code>, <code>pass</code> and the IP with your camera's.
+          Exact paths vary by model/firmware — the camera's web UI or manual has the final word, and VLC is the quickest test.</p>
+        <table class="rtsp-table">
+          <thead><tr><th>Brand</th><th>Main stream URL</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Dahua</td><td><code>rtsp://user:pass@192.168.1.10:554/cam/realmonitor?channel=1&amp;subtype=0</code></td><td><code>subtype=1</code> = substream (lighter)</td></tr>
+            <tr><td>Amcrest</td><td><code>rtsp://user:pass@192.168.1.10:554/cam/realmonitor?channel=1&amp;subtype=0</code></td><td>Dahua hardware — same URLs</td></tr>
+            <tr><td>Hikvision</td><td><code>rtsp://user:pass@192.168.1.10:554/Streaming/Channels/101</code></td><td><code>102</code> = substream; NVR: <code>201</code>, <code>301</code>… per channel</td></tr>
+            <tr><td>EZVIZ</td><td><code>rtsp://admin:VERIFY_CODE@192.168.1.10:554/h264/ch1/main/av_stream</code></td><td>Verification code is on the sticker; enable RTSP in the app</td></tr>
+            <tr><td>UniFi Protect</td><td><code>rtsps://console-ip:7441/xxxxxxxx</code></td><td>Copy from Protect → camera → Advanced → RTSP. Argus strips <code>?enableSrtp</code> automatically; turn on Transcode if it won't play</td></tr>
+            <tr><td>TP-Link Tapo</td><td><code>rtsp://user:pass@192.168.1.10:554/stream1</code></td><td>Create the account in the app: Camera Settings → Advanced → Camera Account</td></tr>
+            <tr><td>Reolink</td><td><code>rtsp://user:pass@192.168.1.10:554/h264Preview_01_main</code></td><td><code>_sub</code> = substream</td></tr>
+            <tr><td>Axis</td><td><code>rtsp://user:pass@192.168.1.10/axis-media/media.amp</code></td><td>Add <code>?resolution=1280x720</code> etc. if needed</td></tr>
+            <tr><td>Bosch</td><td><code>rtsp://user:pass@192.168.1.10/rtsp_tunnel</code></td><td>Some models: <code>?h26x=4&amp;line=1&amp;inst=1</code></td></tr>
+            <tr><td>Pelco (Sarix)</td><td><code>rtsp://user:pass@192.168.1.10:554/stream1</code></td><td>Varies by series — check the model's guide</td></tr>
+            <tr><td>GANZ (PixelPro)</td><td><code>rtsp://user:pass@192.168.1.10/media/video1</code></td><td><code>video2</code> = substream</td></tr>
+            <tr><td>Vivotek</td><td><code>rtsp://user:pass@192.168.1.10/live.sdp</code></td><td></td></tr>
+            <tr><td>Foscam</td><td><code>rtsp://user:pass@192.168.1.10:88/videoMain</code></td><td>Note port <code>88</code> on many models</td></tr>
+            <tr><td>Fanvil intercom</td><td><code>rtsp://user:pass@192.168.1.10/live/av0</code></td><td>Enable RTSP: Intercom → RTSP in the device web UI</td></tr>
+            <tr><td>Anything else</td><td><code>rtsp://user:pass@ip:554/…</code></td><td>Look up "&lt;model&gt; RTSP URL", or use ONVIF Device Manager to discover the stream URI</td></tr>
+          </tbody>
+        </table>
+      </details>
 
       <div id="banner" class="banner" hidden></div>
 
