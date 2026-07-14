@@ -2,10 +2,10 @@
 
 By installing or using Argus you agree to the following:
 
-1. **Free tier.** You may use Argus with up to 2 cameras at no cost, for any
+1. **Free tier.** You may use Argus with up to 4 cameras at no cost, for any
    lawful purpose, indefinitely.
 2. **Paid cameras.** Cameras beyond the free tier require an active
-   subscription ($2 per additional camera per month) and a license key issued
+   subscription (from $5 per additional camera per month) and a license key issued
    to you. Keys are personal to you or your organisation.
 3. **What you may not do.** You may not redistribute Argus, resell it, bundle
    it into another product, share license keys, or remove/circumvent the

@@ -76,7 +76,7 @@ async function save() {
       banner(
         "warn",
         `Your plan covers <b>${data.limit}</b> camera(s) and this list has <b>${data.requested}</b>. ` +
-          `Extra cameras are <b>$2/camera/month</b> — subscribe at ` +
+          `Extra cameras are <b>$5/camera/month</b> (5 for $20/mo, 10 for $30/mo) — subscribe at ` +
           `<a href="https://argus-videowall.web.app/#pricing" target="_blank" rel="noopener">argus-videowall.web.app</a>, ` +
           `then paste your license key below. Or remove ${data.requested - data.limit} camera(s) and save again.`
       );
@@ -117,14 +117,15 @@ document.getElementById("add-row").addEventListener("click", () => addRow());
 document.getElementById("save").addEventListener("click", save);
 
 // ── License ──────────────────────────────────────────────────────────────────
-// 2 cameras are free; a subscription key ($2/camera/month) raises the limit.
+// 4 cameras are free; a subscription key raises the limit ($5/camera/month,
+// volume-priced: 5 extra for $20, 10 extra for $30).
 // Keys verify offline on the box — no cloud involved.
 const licStatusEl = document.getElementById("license-status");
 const licKeyEl = document.getElementById("license-key");
 const licNoteEl = document.getElementById("license-note");
 
 function renderLicense(lic) {
-  const buy = `<a href="https://argus-videowall.web.app/#pricing" target="_blank" rel="noopener">get more cameras — $2/camera/month</a>`;
+  const buy = `<a href="https://argus-videowall.web.app/#pricing" target="_blank" rel="noopener">get more cameras — from $5/camera/month</a>`;
   if (lic.licensed) {
     licStatusEl.innerHTML =
       `✅ Licensed to <b>${escapeHtml(lic.email || "you")}</b> — up to <b>${lic.cams}</b> cameras until <b>${escapeHtml(lic.until)}</b>. ` +

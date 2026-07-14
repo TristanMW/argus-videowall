@@ -10,7 +10,7 @@
 // with a service-account JWT.
 //
 // Entitlement rules (doc fields set by the admin page):
-//   entitled = 2 free + paidCams + bonusCams
+//   entitled = 4 free + paidCams + bonusCams
 //   • paidCams count only while active == true (you verified the PayPal sub)
 //   • bonusCams always count (your manual free-tier grants)
 // Key expiry:
@@ -32,7 +32,7 @@ const os = require("os");
 const path = require("path");
 
 const PROJECT = "argus-videowall";
-const FREE_CAMERAS = 2;
+const FREE_CAMERAS = 4;
 const ROLLING_DAYS = 40;   // paid keys: issued this far ahead
 const RENEW_WITHIN = 20;   // re-issue when fewer than this many days remain
 const BONUS_DAYS = 3650;   // bonus-only grants: effectively permanent

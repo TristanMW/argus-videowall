@@ -8,7 +8,7 @@
 //
 //   --email   customer email (stamped into the key, shown in their UI)
 //   --extra   PAID cameras, i.e. the PayPal subscription quantity
-//             (total = 2 free + extra), or:
+//             (total = 4 free + extra), or:
 //   --cams    TOTAL cameras allowed (overrides --extra)
 //   --months  validity in months from today (default 1) — issue 12 for annual
 //   --until   explicit last valid day, YYYY-MM-DD (overrides --months)
@@ -23,7 +23,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const FREE_CAMERAS = 2;
+const FREE_CAMERAS = 4;
 const GRACE_DAYS = 5;
 
 const args = {};

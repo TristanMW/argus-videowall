@@ -2,7 +2,8 @@
 // Argus licensing — offline-verified subscription keys.
 //
 // Model: the first FREE_CAMERAS cameras are free forever. A license key raises
-// the limit; keys are issued per subscription ($2/camera/month via PayPal) by
+// the limit; keys are issued per subscription ($5/camera/month, volume-priced
+// down to $3 — see docs/monetisation.md) by
 // tools/license-sign.js and verified here against the embedded Ed25519 public
 // key. Verification is fully offline — nothing about the customer's cameras
 // ever leaves their box, and an air-gapped LAN works fine.
@@ -21,7 +22,7 @@ const fs = require("fs");
 const fsp = require("fs/promises");
 const path = require("path");
 
-const FREE_CAMERAS = 2;
+const FREE_CAMERAS = 4;
 
 const PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEATASYeggGtsah/VphgJk6BCpcv7efyZA5oAieQlqkF70=

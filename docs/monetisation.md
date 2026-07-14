@@ -1,7 +1,8 @@
 # Argus monetisation — runbook
 
-**Model:** 2 cameras free forever · **$2 per additional camera per month** ·
-PayPal subscription. Accounts + entitlements live in Firebase (Auth +
+**Model:** 4 cameras free forever · **$5 per additional camera per month**,
+volume-priced: 1–4 extras $5 each · 5–9 extras $4 each ($20 for 5) · 10+
+extras $3 each ($30 for 10) · PayPal subscription (Volume pricing plan). Accounts + entitlements live in Firebase (Auth +
 Firestore); license keys are Ed25519-signed on the admin's Mac and verified
 **offline** on each customer's box — video and camera config never touch the
 cloud.
@@ -74,8 +75,19 @@ works for one-off/offline customers.
 
 ## PayPal (still to do — needs your account)
 
-Create a Business plan ($2/month, `quantity_supported:true`) and put the JS
-SDK subscribe button on account.html; exact API calls and button snippet:
+Create a **Volume pricing** plan (dashboard wizard: Pay & Get Paid →
+Subscriptions → Create plan → *Volume pricing*), monthly cycle, ranges:
+
+| Extra cameras | Price per camera | Examples |
+|---|---|---|
+| 1–4 | $5.00 | 1 = $5 · 4 = $20 |
+| 5–9 | $4.00 | 5 = **$20** |
+| 10–999 | $3.00 | 10 = **$30** |
+
+(Note the intended quirk: 9 extras = $36 > 10 extras = $30 — the account page
+should nudge users to round up.)
+
+Or via API — same plan, `pricing_model: VOLUME`:
 
 ```bash
 TOKEN=$(curl -s -u "CLIENT_ID:SECRET" https://api-m.paypal.com/v1/oauth2/token \
@@ -85,10 +97,13 @@ PRODUCT=$(curl -s -X POST https://api-m.paypal.com/v1/catalogs/products \
   -d '{"name":"Argus additional camera","type":"SERVICE"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
 curl -s -X POST https://api-m.paypal.com/v1/billing/plans \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{
-    "product_id":"'$PRODUCT'","name":"Argus camera ($2/mo each)",
+    "product_id":"'$PRODUCT'","name":"Argus extra cameras (volume, monthly)",
     "billing_cycles":[{"frequency":{"interval_unit":"MONTH","interval_count":1},
       "tenure_type":"REGULAR","sequence":1,"total_cycles":0,
-      "pricing_scheme":{"fixed_price":{"value":"2","currency_code":"USD"}}}],
+      "pricing_scheme":{"pricing_model":"VOLUME","tiers":[
+        {"starting_quantity":"1","ending_quantity":"4","price":{"value":"5","currency_code":"USD"}},
+        {"starting_quantity":"5","ending_quantity":"9","price":{"value":"4","currency_code":"USD"}},
+        {"starting_quantity":"10","price":{"value":"3","currency_code":"USD"}}]}}],
     "payment_preferences":{"auto_bill_outstanding":true},
     "quantity_supported":true}'
 ```

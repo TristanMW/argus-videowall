@@ -90,8 +90,8 @@ $("google").onclick = () =>
 $("signout").onclick = (e) => { e.preventDefault(); auth.signOut(); };
 
 function keyTag(d) {
-  const entitled = 2 + (d.paidCams || 0) + (d.bonusCams || 0);
-  if (!d.key) return entitled > 2 ? '<span class="tag stale">needed</span>' : '<span class="tag none">n/a</span>';
+  const entitled = 4 + (d.paidCams || 0) + (d.bonusCams || 0);
+  if (!d.key) return entitled > 4 ? '<span class="tag stale">needed</span>' : '<span class="tag none">n/a</span>';
   if ((d.keyCams || 0) !== entitled) return '<span class="tag stale">stale</span>';
   return `<span class="tag ok">ok → ${d.keyUntil || "?"}</span>`;
 }
