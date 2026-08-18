@@ -208,11 +208,11 @@
       <a href="#features">Features</a>
       <a href="#how">How it works</a>
       <a href="#install">Install</a>
-      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
       <a href="#security">Privacy</a>
       <a href="#faq">FAQ</a>
     </div>
-    <a class="btn btn-ghost btn-sm" href="account.html">Sign in</a>
+    <a class="btn btn-ghost btn-sm" href="https://github.com/TristanMW/argus-videowall" target="_blank" rel="noopener">GitHub</a>
     <a class="btn btn-primary btn-sm" href="#install">Get Argus</a>
   </div>
 </nav>
@@ -232,7 +232,7 @@
       <a class="btn btn-primary" href="#install">⬇ Install on Windows</a>
       <a class="btn btn-ghost" href="#how">See how it works</a>
     </div>
-    <p class="hero-note">Also runs on macOS &amp; Linux · 4 cameras free forever, then from $5/camera/month · No cloud, no telemetry</p>
+    <p class="hero-note">Also runs on macOS &amp; Linux · Free and open source, no camera limit · No cloud, no telemetry</p>
 
     <!-- Video wall mock -->
     <div class="hero-visual" role="img" aria-label="The Argus video wall: a 3-by-2 grid of live camera tiles with layout and mute controls">
@@ -739,37 +739,38 @@ rtsp://192.168.1.90/live/av0          <span class="c"># Fanvil intercom</span></
   </div>
 </section>
 
-<!-- ══ Pricing ═══════════════════════════════════════════════════════ -->
-<section id="pricing" style="padding-top:0">
+<!-- ══ Open source ═══════════════════════════════════════════════════ -->
+<section id="open-source" style="padding-top:0">
   <div class="wrap">
-    <span class="kicker">Pricing</span>
-    <h2>Four cameras free, forever. Grow from $5.</h2>
+    <span class="kicker">Open source</span>
+    <h2>Free, MIT-licensed, no camera limit.</h2>
     <p class="lede">
-      No trials, no feature gates — the free tier is the full product. Pay only
-      when your wall grows past four cameras, and only for the cameras you add.
+      There is no paid tier, no licence key and no account. Every feature is in
+      the free version because there is only one version, and the source is
+      published so you can check exactly what it does with your cameras.
     </p>
     <div class="install-grid" style="max-width:860px">
       <div class="install-card">
-        <h3>Free</h3>
-        <p class="sub"><b style="color:var(--text-primary);font-size:26px">$0</b> — forever</p>
+        <h3>What it costs</h3>
+        <p class="sub"><b style="color:var(--text-primary);font-size:26px">$0</b> — no limit</p>
         <ul>
-          <li><b>4 cameras</b></li>
+          <li><b>As many cameras as your box can handle</b></li>
           <li>Every feature: WebRTC, two-way talk, PWA, discovery</li>
-          <li>No account, no card, no time limit</li>
+          <li>No account, no card, no time limit, no telemetry</li>
         </ul>
         <pre><span class="c"># nothing to activate — just install</span></pre>
       </div>
       <div class="install-card rec">
-        <span class="pill">Pay as you grow</span>
-        <h3>More cameras</h3>
-        <p class="sub"><b style="color:var(--text-primary);font-size:26px">$5</b> per additional camera / month<br><span style="font-size:12px;color:var(--text-muted)">5 for $20/mo · 10 for $30/mo</span></p>
+        <span class="pill">MIT licensed</span>
+        <h3>The source</h3>
+        <p class="sub">Read it, change it, ship it.</p>
         <ul>
-          <li>Subscribe with <b>PayPal</b> for the cameras you add beyond 4</li>
-          <li>You receive a <b>license key</b> by email — paste it into Argus settings</li>
-          <li>Keys verify <b>offline on your box</b> — still no cloud, no accounts</li>
-          <li>Cancel anytime; the wall falls back to the 4 free cameras</li>
+          <li>Use it commercially, modify it, redistribute it</li>
+          <li>Audit exactly what reaches the network — nothing leaves your LAN</li>
+          <li>Fork it if you need something Argus does not do</li>
+          <li>Issues and pull requests welcome</li>
         </ul>
-        <a class="btn btn-primary" href="account.html" style="justify-content:center">Sign in &amp; add cameras</a>
+        <a class="btn btn-primary" href="https://github.com/TristanMW/argus-videowall" target="_blank" rel="noopener" style="justify-content:center">View the source on GitHub</a>
       </div>
     </div>
   </div>
@@ -792,7 +793,7 @@ rtsp://192.168.1.90/live/av0          <span class="c"># Fanvil intercom</span></
           <li><span class="tick">✓</span><span><b>No accounts, no telemetry, no third-party scripts.</b> The UI bundles zero CDNs, trackers or analytics — it only ever talks to your own box.</span></li>
           <li><span class="tick">✓</span><span><b>No recording, by design.</b> Argus is a live monitor. There is no footage archive to leak, subpoena or fill a disk with.</span></li>
           <li><span class="tick">✓</span><span><b>Private remote access done right.</b> Watch from anywhere over <a href="https://tailscale.com" rel="noopener">Tailscale</a> — a WireGuard-encrypted private mesh with valid HTTPS — instead of port-forwarding cameras to the internet.</span></li>
-          <li><span class="tick">✓</span><span><b>Fully auditable.</b> The code running on your box is plain, readable JavaScript — you can inspect every line of what touches your cameras. Even license keys are verified locally, offline.</span></li>
+          <li><span class="tick">✓</span><span><b>Fully auditable.</b> The code running on your box is plain, readable JavaScript — you can inspect every line of what touches your cameras, and the whole source is published under the MIT licence.</span></li>
         </ul>
       </div>
       <div class="shot" role="img" aria-label="Diagram: your network stays private; remote viewers connect through an encrypted Tailscale tunnel">
@@ -870,7 +871,7 @@ rtsp://192.168.1.90/live/av0          <span class="c"># Fanvil intercom</span></
       </details>
       <details>
         <summary>What does it cost?</summary>
-        <p>Four cameras are free forever, with every feature included. Beyond that it's $5 per extra camera per month — volume-priced down to $20/month for 5 extras or $30/month for 10 — paid by PayPal subscription — you get a license key by email and paste it into Argus once. The key is verified on your own box, offline; there's still no cloud account and no telemetry. Cancel anytime and the wall simply falls back to the two free cameras.</p>
+        <p>Nothing. Argus is free and open source under the MIT licence, with no camera limit, no licence key and no account to create. There is no paid tier and no telemetry — the whole thing runs on your own box. The source is on <a href="https://github.com/TristanMW/argus-videowall" target="_blank" rel="noopener">GitHub</a> if you want to read it, change it, or use it commercially.</p>
       </details>
     </div>
   </div>

@@ -44,9 +44,7 @@ function renderSidebar() {
 
   for (const cam of shown) {
     const item = document.createElement("button");
-    item.className = "nav-item" +
-      (onWall.has(cam.id) ? " nav-item--active" : "") +
-      (cam.disabled ? " nav-item--disabled" : "");
+    item.className = "nav-item" + (onWall.has(cam.id) ? " nav-item--active" : "");
     item.innerHTML = `
       <svg class="nav-item__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -54,15 +52,9 @@ function renderSidebar() {
         <circle cx="11" cy="12" r="3.2"/>
       </svg>
       <span class="nav-item__name">${escapeHtml(cam.name || cam.id)}</span>
-      <span class="nav-item__tag">${cam.disabled ? "over limit" : onWall.has(cam.id) ? "on wall" : "add"}</span>`;
-    item.title = cam.disabled
-      ? `${cam.name} is beyond your plan's camera limit`
-      : onWall.has(cam.id) ? `${cam.name} is on the wall` : `Add ${cam.name} to the wall`;
+      <span class="nav-item__tag">${onWall.has(cam.id) ? "on wall" : "add"}</span>`;
+    item.title = onWall.has(cam.id) ? `${cam.name} is on the wall` : `Add ${cam.name} to the wall`;
     item.addEventListener("click", () => {
-      if (cam.disabled) {
-        toast("Over your plan's camera limit — increase your subscription on the account page");
-        return;
-      }
       wall.addCamera(cam.id);
       toast(`Added ${cam.name || cam.id}`);
     });
@@ -188,12 +180,8 @@ function start() {
   warnIfMixedContent();
 
   fetch(`${ARGUS.backendBase()}/api/cameras`)
-    .then((r) => {
-      if (r.status === 403) { showGate(); return null; }
-      return r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`));
-    })
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
     .then((list) => {
-      if (list === null) return;
       cameras = Array.isArray(list) ? list : [];
       byId = new Map(cameras.map((c) => [c.id, c]));
       wall.setCameras(cameras);
@@ -205,52 +193,6 @@ function start() {
         Open <a href="config.html">⚙ settings</a> to connect.</div>`;
     });
 }
-
-// ── Account gate: the box must be linked to an Argus account first ───────────
-// Sign-in uses the Firebase Auth REST API (works on any LAN origin) and hands
-// the refresh token to the backend, which links the box and follows the
-// account's license from then on.
-const FIREBASE_API_KEY = "AIzaSyDwnINHwoFL9of-FrOOPN2KKr0K0hO0J-s";
-
-function showGate() {
-  $("signin-gate").hidden = false;
-}
-
-async function gateAuth() {
-  const email = $("gate-email").value.trim();
-  const pass = $("gate-pass").value;
-  const noteEl = $("gate-note");
-  const btn = $("gate-signin");
-  if (!email || !pass) { noteEl.textContent = "Enter your email and password."; return; }
-  btn.disabled = true;
-  noteEl.textContent = "Signing in…";
-  try {
-    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password: pass, returnSecureToken: true }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      const code = (data.error && data.error.message) || "";
-      throw new Error(/EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS/.test(code)
-        ? "Wrong email or password. (Signed up with Google? Use “Forgot password” on the account page to set one.)"
-        : `Sign-in failed: ${code || res.status}`);
-    }
-    noteEl.textContent = "Linking this box…";
-    const linkRes = await fetch(`${ARGUS.backendBase()}/api/license/link`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: data.refreshToken, email }),
-    });
-    if (!linkRes.ok) throw new Error("Could not link the box — is the backend reachable?");
-    noteEl.textContent = "Done — loading your wall…";
-    location.reload();
-  } catch (err) {
-    noteEl.textContent = err.message;
-    btn.disabled = false;
-  }
-}
-$("gate-signin").addEventListener("click", gateAuth);
-$("gate-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") gateAuth(); });
 
 // A stale per-device backend override (stored ages ago by Detect/manual
 // entry) can point this page at a different box than the one that served it —
@@ -266,16 +208,8 @@ async function healBackendOverride() {
 
 async function boot() {
   await healBackendOverride();
-  let lic = null;
-  try {
-    lic = await (await fetch(`${ARGUS.backendBase()}/api/license`, { cache: "no-store" })).json();
-  } catch { /* backend unreachable — start() shows its own error */ }
-  // One-line boot diagnostic — this is the whole gate decision, made visible.
   console.info("[argus] page:", location.href, "| backend:", ARGUS.backendBase(),
-    "| override:", ARGUS.getBackendOverride() || "(none)",
-    "| linked:", lic ? lic.linked : "(no license response)",
-    "| gate:", !!(lic && lic.requireAccount && !lic.linked));
-  if (lic && lic.requireAccount && !lic.linked) { showGate(); return; }
+    "| override:", ARGUS.getBackendOverride() || "(none)");
   start();
 }
 

@@ -314,16 +314,9 @@ body {
 .rtsp-table code { font-family: var(--font-mono); font-size: 11.5px; color: #BFE3FF; word-break: break-all; }
 .rtsp-table td:last-child { color: var(--text-muted); }
 
-.nav-item--disabled { opacity: .45; }
-.nav-item--disabled .nav-item__tag { color: var(--warn); }
 
-.limit-note { color: var(--warn); font-size: 12.5px; }
-.limit-note a { color: var(--accent); }
 #add-row:disabled { opacity: .45; cursor: not-allowed; }
 
-.license { margin-top: var(--s7); padding-top: var(--s5); border-top: 1px solid var(--border-subtle); }
-.license-head { font: 600 14px/1 var(--font-ui); color: var(--text-primary); margin-bottom: var(--s3); }
-.license .backend-row { margin-top: var(--s4); }
 
 .advanced { margin-top: 26px; border-top: 1px solid var(--border-default); padding-top: 14px; }
 .advanced summary { cursor: pointer; color: var(--text-muted); font-weight: 600; }

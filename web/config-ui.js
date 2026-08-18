@@ -34,7 +34,7 @@ function addRow(cam = {}) {
   });
 
   const remove = el("button", { type: "button", class: "row-btn danger", title: "Remove" }, "✕");
-  remove.addEventListener("click", () => { tr.remove(); updateAddLimit(); });
+  remove.addEventListener("click", () => tr.remove());
 
   const tr = el("tr", {}, [
     el("td", {}, name),
@@ -49,26 +49,7 @@ function addRow(cam = {}) {
     transcode: transcode.checked,
   });
   rowsEl.append(tr);
-  updateAddLimit();
   return tr;
-}
-
-// ── Plan limit: hard-lock the Add camera button at the subscription cap ──────
-const ACCOUNT_URL = "https://argus-videowall.web.app/account.html";
-let camLimit = Infinity; // refreshed from GET /api/license
-
-function updateAddLimit() {
-  const btn = document.getElementById("add-row");
-  const noteEl = document.getElementById("limit-note");
-  const atCap = Number.isFinite(camLimit) && rowsEl.children.length >= camLimit;
-  btn.disabled = atCap;
-  btn.title = atCap ? "Your plan's camera limit is reached" : "";
-  noteEl.hidden = !atCap;
-  if (atCap) {
-    noteEl.innerHTML =
-      `Plan limit reached (${camLimit} cameras) — ` +
-      `<a href="${ACCOUNT_URL}" target="_blank" rel="noopener">increase your subscription</a> to add more.`;
-  }
 }
 
 function collect() {
@@ -91,21 +72,10 @@ async function save() {
       body: JSON.stringify(list),
     });
     const data = await res.json();
-    if (res.status === 402 && data.error === "license_limit") {
-      banner(
-        "warn",
-        `Your plan covers <b>${data.limit}</b> camera(s) and this list has <b>${data.requested}</b>. ` +
-          `Extra cameras are <b>$5/camera/month</b> (5 for $20/mo, 10 for $30/mo) — subscribe at ` +
-          `<a href="https://argus-videowall.web.app/#pricing" target="_blank" rel="noopener">argus-videowall.web.app</a>, ` +
-          `then paste your license key below. Or remove ${data.requested - data.limit} camera(s) and save again.`
-      );
-      return;
-    }
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     // Re-render with backend-assigned ids so Test buttons light up.
     render(data.cameras);
-    loadLicense(); // refresh the "using X of Y" line
 
     if (data.warnings && data.warnings.length) {
       banner(
@@ -135,121 +105,6 @@ function escapeHtml(s) {
 
 document.getElementById("add-row").addEventListener("click", () => addRow());
 document.getElementById("save").addEventListener("click", save);
-
-// ── License ──────────────────────────────────────────────────────────────────
-// 4 cameras are free; a subscription key raises the limit ($5/camera/month,
-// volume-priced: 5 extra for $20, 10 extra for $30).
-// Keys verify offline on the box — no cloud involved.
-const licStatusEl = document.getElementById("license-status");
-const licKeyEl = document.getElementById("license-key");
-const licNoteEl = document.getElementById("license-note");
-
-// Mirrors the account page: shows the plan and how much of it is used here.
-function renderLicense(lic) {
-  camLimit = lic.limit || lic.free || 4;
-  updateAddLimit();
-  const used = rowsEl.children.length;
-  const usage = `You're using <b>${used}</b> of <b>${camLimit}</b> camera slot(s) on this box.`;
-  const buy = `<a href="${ACCOUNT_URL}" target="_blank" rel="noopener">manage your subscription</a>`;
-  const linked = lic.linked
-    ? `<br>🔗 Linked to <b>${escapeHtml(lic.linkedEmail || "your account")}</b> — the license updates automatically. <a href="#" id="lic-unlink">Unlink</a>`
-    : "";
-  if (lic.licensed) {
-    licStatusEl.innerHTML =
-      `✅ Licensed to <b>${escapeHtml(lic.email || "you")}</b> — <b>${lic.cams}</b> cameras until <b>${escapeHtml(lic.until)}</b>. ${usage} ${buy}.${linked}`;
-  } else if (lic.expired) {
-    licStatusEl.innerHTML =
-      `⚠ Your license expired on <b>${escapeHtml(lic.until)}</b> — back to the ${lic.free} free cameras. ${usage} ` +
-      `Renew, then sign in below to re-sync (${buy}).${linked}`;
-  } else {
-    licStatusEl.innerHTML =
-      `<b>${lic.free}</b> cameras are included free, forever. ${usage} Need more? ${buy}.${linked}` +
-      (lic.error ? `<br>⚠ ${escapeHtml(lic.error)}` : "");
-  }
-  const unlink = document.getElementById("lic-unlink");
-  if (unlink) unlink.addEventListener("click", async (e) => {
-    e.preventDefault();
-    const res = await fetch(`${ARGUS.backendBase()}/api/license/link`, { method: "DELETE" });
-    if (res.ok) renderLicense(await res.json());
-  });
-}
-
-async function loadLicense() {
-  try {
-    const res = await fetch(`${ARGUS.backendBase()}/api/license`, { cache: "no-store" });
-    if (res.ok) renderLicense(await res.json());
-  } catch { /* backend gone — the gate handles that */ }
-}
-
-// ── Sign in & link: the box follows the user's Argus account ─────────────────
-// Email/password via the Firebase Auth REST API (works from any LAN origin —
-// no authorized-domain requirement, unlike the popup flows). The box stores
-// the refresh token and re-syncs the license from the account at boot and
-// every 6 hours, so upgrades/downgrades propagate on their own. Only the
-// license travels; no camera data leaves the box.
-const FIREBASE_API_KEY = "AIzaSyDwnINHwoFL9of-FrOOPN2KKr0K0hO0J-s";
-
-document.getElementById("lic-signin").addEventListener("click", async () => {
-  const email = document.getElementById("lic-email").value.trim();
-  const pass = document.getElementById("lic-pass").value;
-  const noteEl = document.getElementById("lic-signin-note");
-  if (!email || !pass) { noteEl.textContent = "Enter your email and password."; return; }
-  noteEl.textContent = "Signing in…";
-  try {
-    const authRes = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`,
-      { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: pass, returnSecureToken: true }) }
-    );
-    const authData = await authRes.json();
-    if (!authRes.ok) {
-      const code = (authData.error && authData.error.message) || "";
-      throw new Error(/EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS/.test(code)
-        ? "Wrong email or password. (Google sign-ins: set a password via “Forgot password” on the account page.)"
-        : `Sign-in failed: ${code || authRes.status}`);
-    }
-    noteEl.textContent = "Linking this box to your account…";
-    const linkRes = await fetch(`${ARGUS.backendBase()}/api/license/link`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: authData.refreshToken, email }),
-    });
-    const status = await linkRes.json();
-    if (!linkRes.ok) throw new Error(status.error || `HTTP ${linkRes.status}`);
-    noteEl.textContent = "";
-    document.getElementById("lic-pass").value = "";
-    renderLicense(status);
-    if (status.syncError) {
-      banner("warn", `Linked, but the first sync had a problem: ${escapeHtml(status.syncError)}`);
-    } else if (status.licensed) {
-      banner("ok", `Linked & synced — this box is licensed for ${status.cams} cameras until ${escapeHtml(status.until)}. It now updates automatically.`);
-    } else {
-      banner("ok", `Linked. Your account is on the free tier (${status.free} cameras) — the box updates automatically when you subscribe.`);
-    }
-  } catch (err) {
-    noteEl.textContent = err.message;
-  }
-});
-
-document.getElementById("license-apply").addEventListener("click", async () => {
-  const key = licKeyEl.value.trim();
-  if (!key) { licNoteEl.textContent = "Paste a key first."; return; }
-  licNoteEl.textContent = "Checking…";
-  try {
-    const res = await fetch(`${ARGUS.backendBase()}/api/license`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    licNoteEl.textContent = "";
-    licKeyEl.value = "";
-    renderLicense(data);
-    banner("ok", `License activated — up to ${data.cams} cameras until ${escapeHtml(data.until)}.`);
-  } catch (err) {
-    licNoteEl.textContent = err.message;
-  }
-});
 
 // ── Backend connection: manual entry + network detection ─────────────────────
 const backendInput = document.getElementById("backend-url");
@@ -369,67 +224,21 @@ function showGate() {
   connected = false;
   editorEl.hidden = true;
   connEl.hidden = true;
-  document.getElementById("account-gate").hidden = true;
   openGate();
 }
 
 function showEditor(list) {
   connected = true;
   gateEl.hidden = true;
-  document.getElementById("account-gate").hidden = true;
   editorEl.hidden = false;
   connEl.hidden = false;
   connEl.innerHTML = `<span class="dot live"></span> Connected to <code>${escapeHtml(ARGUS.backendBase())}</code> — use <strong>⚙ Backend</strong> to change.`;
   render(list);
-  loadLicense();
 }
-
-// ── Account gate: box must be linked to an Argus account before editing ──────
-const accountGateEl = document.getElementById("account-gate");
-
-function showAccountGate() {
-  connected = false;
-  editorEl.hidden = true;
-  gateEl.hidden = true;
-  connEl.hidden = true;
-  accountGateEl.hidden = false;
-}
-
-async function accountGateAuth() {
-  const email = document.getElementById("agate-email").value.trim();
-  const pass = document.getElementById("agate-pass").value;
-  const noteEl = document.getElementById("agate-note");
-  if (!email || !pass) { noteEl.textContent = "Enter your email and password."; return; }
-  noteEl.textContent = "Signing in…";
-  try {
-    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password: pass, returnSecureToken: true }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      const code = (data.error && data.error.message) || "";
-      throw new Error(/EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS/.test(code)
-        ? "Wrong email or password. (Signed up with Google? Use “Forgot password” on the account page to set one.)"
-        : `Sign-in failed: ${code || res.status}`);
-    }
-    noteEl.textContent = "Linking this box…";
-    const linkRes = await fetch(`${ARGUS.backendBase()}/api/license/link`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: data.refreshToken, email }),
-    });
-    if (!linkRes.ok) throw new Error("Could not link the box.");
-    location.reload();
-  } catch (err) {
-    noteEl.textContent = err.message;
-  }
-}
-document.getElementById("agate-signin").addEventListener("click", accountGateAuth);
-document.getElementById("agate-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") accountGateAuth(); });
 
 async function connect() {
   // Served-from-a-box pages always talk to their own box: a stale per-device
-  // override must not point the UI (and its sign-in gate) somewhere else.
+  // override must not point the UI somewhere else.
   if (ARGUS.getBackendOverride()) {
     try {
       const ping = await fetch("/api/ping", { cache: "no-store" });
@@ -438,7 +247,6 @@ async function connect() {
   }
   try {
     const res = await fetch(`${ARGUS.backendBase()}/api/cameras`, { cache: "no-store" });
-    if (res.status === 403) { showAccountGate(); return; }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const list = await res.json();
     showEditor(Array.isArray(list) ? list : []);

@@ -35,3 +35,14 @@ firebase.json
 deploy-hosting.sh
 setup.log
 logs/
+
+# ── Private to Wiltech — kept locally, never published ───────────────────────
+# Firebase security rules for the argus-videowall project (deploy source of
+# truth; not part of the self-host repo).
+firestore.rules
+database.rules.json
+# Internal working notes.
+docs/app_details.md
+docs/monetisation.md
+# Internal threat model: references the retired licensing design and open TODOs.
+docs/security.md

@@ -320,5 +320,16 @@ tells you exactly how to recover.
 
 ---
 
-See [`docs/app_details.md`](docs/app_details.md) for architecture and design
-decisions.
+## Licence
+
+Argus is free and open source under the [MIT Licence](LICENSE) — no camera
+limit, no licence key, no account. Use it commercially, modify it, redistribute
+it.
+
+Bundled third-party components, including the
+[go2rtc](https://github.com/AlexxIT/go2rtc) streaming engine, remain under their
+own licences.
+
+Issues and pull requests are welcome.
+
+Built by [Wiltech Solutions](https://github.com/TristanMW) — Howick, KwaZulu-Natal.

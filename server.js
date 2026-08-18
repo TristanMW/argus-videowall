@@ -10,9 +10,6 @@ const http = require("http");
 const fsp = require("fs/promises");
 const fs = require("fs");
 const path = require("path");
-// "licensing" not "license": require("./license") would resolve to the LICENSE
-// text file on case-insensitive filesystems (macOS/Windows) and crash.
-const license = require("./licensing");
 
 const VERSION = "1.0.0";
 const PORT = Number(process.env.PORT || 8080);
@@ -191,110 +188,16 @@ async function waitForGo2rtc(tries = 15) {
   return false;
 }
 
-// Cameras the current license allows to stream (first N of the saved list).
-// Anything beyond the limit stays saved but is not registered with the engine.
-function licensedSlice(list) {
-  const { limit } = license.getStatus(DATA_FILE);
-  return list.slice(0, limit);
-}
-
-// ── Account link: the box follows the user's Argus account ──────────────────
-// After "Sign in & sync" the box stores the Firebase refresh token (scoped by
-// Firestore rules to reading that user's own license doc) and re-fetches the
-// license at boot and every 6 hours. Upgrades, downgrades, and admin grants
-// then propagate without anyone touching the box. Offline boxes keep their
-// last key (it verifies locally); only an explicit "no key on the account"
-// clears it.
-const LINK_FILE = process.env.LICENSE_LINK_FILE || path.join(path.dirname(DATA_FILE), "license-link.json");
-const FIREBASE_API_KEY = "AIzaSyDwnINHwoFL9of-FrOOPN2KKr0K0hO0J-s"; // public web key
-const firestoreLicenseUrl = (uid) =>
-  `https://firestore.googleapis.com/v1/projects/argus-videowall/databases/(default)/documents/licenses/${uid}`;
-
-async function readLink() {
-  try { return JSON.parse(await fsp.readFile(LINK_FILE, "utf8")); } catch { return null; }
-}
-
-// The app requires the box to be linked to an Argus account before cameras
-// can be viewed or managed (set ARGUS_REQUIRE_ACCOUNT=0 to opt out, e.g. for
-// fully offline installs provisioned by hand).
-const REQUIRE_ACCOUNT = process.env.ARGUS_REQUIRE_ACCOUNT !== "0";
-async function accountGate(res) {
-  if (!REQUIRE_ACCOUNT || (await readLink())) return false;
-  json(res, 403, { error: "account_required", accountUrl: "https://argus-videowall.web.app/account.html" });
-  return true;
-}
-
-async function refreshLicenseFromAccount() {
-  const link = await readLink();
-  if (!link || !link.refreshToken) return { linked: false };
-  const before = license.getStatus(DATA_FILE);
-  try {
-    const tr = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FIREBASE_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(link.refreshToken)}`,
-    });
-    if (!tr.ok) {
-      console.warn("[argus] license link: token refresh rejected (sign in again on the config page)");
-      return { linked: true, error: "sign-in expired — sign in again on the config page" };
-    }
-    const tok = await tr.json();
-    // Firebase rotates refresh tokens — persist the newest one.
-    if (tok.refresh_token && tok.refresh_token !== link.refreshToken) {
-      fsp.writeFile(LINK_FILE, JSON.stringify({ ...link, refreshToken: tok.refresh_token }, null, 2)).catch(() => {});
-    }
-    const dr = await fetch(firestoreLicenseUrl(tok.user_id), {
-      headers: { Authorization: `Bearer ${tok.id_token}` },
-    });
-    if (dr.status === 404 && link.email) {
-      // First sign-in from a box: create the user's license doc so the admin
-      // panel can see (and grant cameras to) accounts that never opened the
-      // account page. Rules allow the user to create their own doc.
-      await fetch(`${firestoreLicenseUrl(tok.user_id)}?updateMask.fieldPaths=email`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${tok.id_token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ fields: { email: { stringValue: link.email } } }),
-      }).catch(() => {});
-    }
-    if (!dr.ok && dr.status !== 404) return { linked: true, error: `account read failed (HTTP ${dr.status})` };
-    const doc = dr.ok ? await dr.json() : {};
-    const key = doc.fields && doc.fields.key && doc.fields.key.stringValue;
-    if (key) {
-      try {
-        await license.setKey(DATA_FILE, key);
-      } catch (e) {
-        // Expired/invalid key on the account == no entitlement.
-        await license.clearKey(DATA_FILE);
-      }
-    } else if (before.licensed || before.expired) {
-      await license.clearKey(DATA_FILE);
-      console.log("[argus] account has no license key — reverted to the free tier");
-    }
-    const after = license.getStatus(DATA_FILE);
-    if (after.limit !== before.limit) {
-      console.log(`[argus] license refreshed from account: ${before.limit} → ${after.limit} cameras`);
-      initialSync().catch(() => {});
-    }
-    return { linked: true, ok: true };
-  } catch {
-    return { linked: true, error: "account unreachable (offline?) — keeping the current key" };
-  }
-}
-
 // On boot go2rtc may not be up yet — wait, enable WebRTC, then sync cameras.
 async function initialSync() {
   const list = await loadCameras();
-  const active = licensedSlice(list);
-  if (active.length < list.length) {
-    console.warn(`[argus] license allows ${active.length} of ${list.length} saved camera(s) — the rest won't stream (renew or trim the list)`);
-  }
   if (!(await waitForGo2rtc())) {
     console.warn("[argus] go2rtc not reachable at boot; will sync on next save");
     return;
   }
   if (await ensureWebrtcCandidate()) await waitForGo2rtc();
-  const errors = await syncGo2rtc(active);
-  console.log(`[argus] synced ${active.length} camera(s) to go2rtc` + (errors.length ? ` (${errors.length} warning(s))` : ""));
+  const errors = await syncGo2rtc(list);
+  console.log(`[argus] synced ${list.length} camera(s) to go2rtc` + (errors.length ? ` (${errors.length} warning(s))` : ""));
 }
 
 // ── HTTP helpers ─────────────────────────────────────────────────────────────
@@ -358,16 +261,10 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (pathname === "/api/cameras" && req.method === "GET") {
-      if (await accountGate(res)) return;
-      // Cameras past the license limit are flagged so the wall can grey them
-      // out — they are never registered with the engine (see licensedSlice).
-      const list = await loadCameras();
-      const { limit } = license.getStatus(DATA_FILE);
-      return json(res, 200, list.map((c, i) => (i < limit ? c : { ...c, disabled: true })));
+      return json(res, 200, await loadCameras());
     }
 
     if (pathname === "/api/cameras" && req.method === "PUT") {
-      if (await accountGate(res)) return;
       let parsed;
       try {
         parsed = JSON.parse(await readBody(req));
@@ -375,63 +272,9 @@ const server = http.createServer(async (req, res) => {
         return json(res, 400, { error: "invalid JSON" });
       }
       const list = normalize(parsed);
-      // Licensing: the first `limit` cameras are included; more needs a key
-      // ($2/camera/month). 402 Payment Required, with everything the config
-      // page needs to explain the situation.
-      const lic = license.getStatus(DATA_FILE);
-      if (list.length > lic.limit) {
-        return json(res, 402, {
-          error: "license_limit",
-          limit: lic.limit,
-          requested: list.length,
-          license: lic,
-        });
-      }
       await saveCameras(list);
       const errors = await syncGo2rtc(list);
       return json(res, 200, { ok: errors.length === 0, cameras: list, warnings: errors });
-    }
-
-    // License status / activation. The key is verified offline (Ed25519) —
-    // no cloud round-trip, nothing about the cameras leaves the box.
-    if (pathname === "/api/license" && req.method === "GET") {
-      const link = await readLink();
-      return json(res, 200, {
-        ...license.getStatus(DATA_FILE),
-        linked: !!link,
-        linkedEmail: (link && link.email) || "",
-        requireAccount: REQUIRE_ACCOUNT,
-      });
-    }
-
-    // Account link: store the refresh token and follow the account's license.
-    if (pathname === "/api/license/link" && req.method === "PUT") {
-      let body;
-      try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
-      if (!body.refreshToken) return json(res, 400, { error: "missing refreshToken" });
-      await fsp.mkdir(path.dirname(LINK_FILE), { recursive: true });
-      await fsp.writeFile(LINK_FILE, JSON.stringify({ refreshToken: body.refreshToken, email: body.email || "" }, null, 2));
-      const result = await refreshLicenseFromAccount();
-      const status = license.getStatus(DATA_FILE);
-      return json(res, 200, { ...status, linked: true, linkedEmail: body.email || "", syncError: result.error || "" });
-    }
-    if (pathname === "/api/license/link" && req.method === "DELETE") {
-      await fsp.rm(LINK_FILE, { force: true });
-      return json(res, 200, { ...license.getStatus(DATA_FILE), linked: false, linkedEmail: "" });
-    }
-    if (pathname === "/api/license" && req.method === "PUT") {
-      let body;
-      try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
-      try {
-        const status = await license.setKey(DATA_FILE, body.key);
-        await initialSync().catch(() => {});
-        return json(res, 200, status);
-      } catch (e) {
-        return json(res, 400, { error: String(e.message || e) });
-      }
-    }
-    if (pathname === "/api/license" && req.method === "DELETE") {
-      return json(res, 200, await license.clearKey(DATA_FILE));
     }
 
     // Lightweight identity endpoint used by the config page's "Detect backend"
@@ -459,17 +302,12 @@ server.on("error", (e) => {
 });
 server.listen(PORT, () => {
   console.log(`[argus] web UI on :${PORT}, go2rtc at ${GO2RTC_URL}`);
-  // Follow the linked account (if any) before the first engine sync, then
-  // re-check every 6 hours so account changes propagate on their own.
-  refreshLicenseFromAccount().finally(() => initialSync());
-  setInterval(() => refreshLicenseFromAccount().catch(() => {}), 6 * 3600 * 1000);
-  // Reconcile the engine with the licensed camera list every 5 minutes. This
-  // re-trims after a hand-edited cameras.json without waiting for a reboot,
-  // and removes streams injected directly into go2rtc's API to sidestep the
-  // limit (go2rtc's port must stay reachable — the player iframes use it).
+  initialSync();
+  // Reconcile the engine with the saved camera list every 5 minutes, so a
+  // hand-edited cameras.json takes effect without waiting for a reboot.
   setInterval(async () => {
     try {
-      if (await go2rtcUp()) await syncGo2rtc(licensedSlice(await loadCameras()));
+      if (await go2rtcUp()) await syncGo2rtc(await loadCameras());
     } catch { /* engine down — boot sync handles recovery */ }
   }, 5 * 60 * 1000);
   // Advertise argus.local on the LAN so devices can find the box with no IP.
